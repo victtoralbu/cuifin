@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check } from 'lucide-react';
+import { X, Check, Plus } from 'lucide-react';
 
 const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
   const [showCustomEmoji, setShowCustomEmoji] = useState(false);
@@ -50,7 +50,7 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
           className="fixed inset-0 z-[60] bg-white dark:bg-zinc-950 flex flex-col"
         >
           <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center mt-safe">
-            <button onClick={onClose} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-2xl transition-colors"><X size={24} /></button>
+            <button onClick={onClose} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-3xl transition-colors"><X size={24} /></button>
             <h2 className="text-sm font-black uppercase tracking-widest opacity-40">
               {initialData ? 'Editar Item' : 'Novo Item'}
             </h2>
@@ -77,7 +77,7 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
               <div className="space-y-4">
                 <label className="text-[10px] uppercase font-black text-zinc-400 tracking-widest block text-center">Quantidade</label>
                 <div className="flex items-center justify-center gap-4 bg-zinc-50 dark:bg-zinc-900 rounded-3xl p-2 border border-zinc-100 dark:border-zinc-800">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setFormData({ ...formData, quantity: Math.max(1, formData.quantity - 1) })}
                     className="w-12 h-12 flex items-center justify-center font-black text-2xl active:scale-90 transition-transform bg-white dark:bg-zinc-800 rounded-2xl shadow-sm"
@@ -90,7 +90,7 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
                     onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
                     className="w-12 bg-transparent text-center font-black text-xl focus:outline-none"
                   />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setFormData({ ...formData, quantity: formData.quantity + 1 })}
                     className="w-12 h-12 flex items-center justify-center font-black text-2xl active:scale-90 transition-transform bg-white dark:bg-zinc-800 rounded-2xl shadow-sm"

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Edit, Share2, Users, CheckCircle } from 'lucide-react';
 import ShoppingItemForm from '../components/ShoppingItemForm';
 import FriendSelectionModal from '../components/FriendSelectionModal';
+import SwipeTutorial from '../components/SwipeTutorial';
 import { dataService } from '../lib/dataService';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,6 +15,7 @@ const ComprasScreen = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
   const [friends, setFriends] = useState([]);
+  const [showTutorial, setShowTutorial] = useState(false);
   const { user } = useAuth();
 
   const fetchItems = useCallback(async () => {
@@ -63,12 +65,22 @@ const ComprasScreen = () => {
         await dataService.updateShoppingItem(editingItem.id, data);
       } else {
         await dataService.addShoppingItem(data);
+        // Check if tutorial should be shown
+        const hasSeenTutorial = localStorage.getItem('cuifin_swipe_tutorial_seen');
+        if (!hasSeenTutorial) {
+          setShowTutorial(true);
+        }
       }
       fetchItems();
     } catch (error) {
       console.error('Error saving item:', error);
     }
     setEditingItem(null);
+  };
+
+  const handleTutorialComplete = () => {
+    setShowTutorial(false);
+    localStorage.setItem('cuifin_swipe_tutorial_seen', 'true');
   };
 
   const openAddForm = () => {
@@ -82,6 +94,7 @@ const ComprasScreen = () => {
   };
 
   const deleteItem = async (id) => {
+    if (!window.confirm('Deseja excluir este item da lista?')) return;
     if (window.navigator.vibrate) window.navigator.vibrate([10, 30]);
     try {
       setItems(prev => prev.filter(item => item.id !== id));
@@ -92,12 +105,15 @@ const ComprasScreen = () => {
     }
   };
 
-  const handleShareWithFriend = (friend) => {
-    const inviteLink = `${window.location.origin}?invite=${user?.id}`;
-    const message = `Ei ${friend.name}! Estou compartilhando minha lista de compras do CuiFin com você. Clica aqui para entrar: ${inviteLink}`;
-    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-    setIsFriendModalOpen(false);
+  const handleShareWithFriend = async (friend) => {
+    try {
+      await dataService.sendShoppingInvite(friend.id);
+      alert(`Convite enviado para ${friend.name}! 🚀`);
+      setIsFriendModalOpen(false);
+    } catch (error) {
+      console.error('Error sending invite:', error);
+      alert('Erro ao enviar convite. Tente novamente.');
+    }
   };
 
   const openFriendModal = () => {
@@ -153,13 +169,13 @@ const ComprasScreen = () => {
         <div className="flex gap-2 pb-1">
           <button 
             onClick={openFriendModal}
-            className="bg-zinc-100 dark:bg-zinc-900 text-verde p-2.5 rounded-full active:scale-90 transition-transform shadow-sm border border-zinc-200 dark:border-zinc-800"
+            className="bg-zinc-100 dark:bg-zinc-900 text-verde p-3 rounded-2xl active:scale-90 transition-transform shadow-sm border border-zinc-200 dark:border-zinc-800"
           >
             <Users size={20} />
           </button>
           <button 
             onClick={openAddForm}
-            className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-2.5 rounded-full active:scale-90 transition-transform"
+            className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-3 rounded-2xl active:scale-90 transition-transform shadow-xl shadow-zinc-900/10"
           >
             <Plus size={24} />
           </button>
@@ -168,71 +184,82 @@ const ComprasScreen = () => {
 
       <div className="grid grid-cols-2 gap-3 pb-32">
         {items.length > 0 ? (
-          items.map(item => (
-            <div key={item.id} className="relative">
-              <div className="absolute inset-0 flex items-center justify-between px-4 rounded-xl opacity-40">
-                <Edit size={20} className="text-zinc-400" />
-                <Trash2 size={20} className="text-vermelho" />
-              </div>
+          <>
+            {items.map(item => (
+                <div key={item.id} className="relative">
+                  <div className="absolute inset-0 flex items-center justify-between px-4 rounded-xl opacity-40">
+                    <Edit size={20} className="text-zinc-400" />
+                    <Trash2 size={20} className="text-vermelho" />
+                  </div>
 
-              <motion.div
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.6}
-                onDragEnd={(e, info) => {
-                  if (info.offset.x < -80) deleteItem(item.id);
-                  else if (info.offset.x > 80) openEditForm(item);
-                }}
-                whileTap={{ scale: 0.95 }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (window.navigator.vibrate) window.navigator.vibrate(100);
-                  setShowMenuId(item.id);
-                }}
-                onClick={() => toggleBought(item)}
-                className={`scannable-card h-full relative z-10 p-4 ${item.bought ? 'status-verde' : 'status-gray'} cursor-pointer flex flex-col justify-between`}
-              >
-                <AnimatePresence>
-                  {showMenuId === item.id && (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute inset-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-2"
-                      onClick={(e) => { e.stopPropagation(); setShowMenuId(null); }}
-                    >
-                      <button 
-                        onClick={() => { setShowMenuId(null); openEditForm(item); }}
-                        className="flex items-center gap-2 font-bold text-xs"
-                      >
-                        <Edit size={14} /> Editar
-                      </button>
-                      <button onClick={() => deleteItem(item.id)} className="flex items-center gap-2 font-bold text-xs text-vermelho"><Trash2 size={14} /> Excluir</button>
-                      <button className="text-[8px] font-bold text-zinc-400 mt-1 uppercase">Fechar</button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                <div className={`flex flex-col h-full ${item.bought ? 'opacity-40' : ''}`}>
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="text-3xl">{item.emoji}</span>
-                    <p className={`font-black text-sm ${item.bought ? 'text-verde' : 'text-zinc-900 dark:text-zinc-100'}`}>
-                      R$ {(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                  <div className="flex-1">
-                    <p className={`font-bold text-base leading-tight ${item.bought ? 'line-through text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
-                      {item.name}
-                    </p>
-                    <div className="flex justify-between items-center mt-2">
-                      <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">Qtd: {item.quantity}</p>
-                      {item.bought && <CheckCircle size={14} className="text-verde" />}
+                  <motion.div
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.6}
+                    onDragEnd={(e, info) => {
+                      if (info.offset.x < -80) deleteItem(item.id);
+                      else if (info.offset.x > 80) openEditForm(item);
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (window.navigator.vibrate) window.navigator.vibrate(100);
+                      setShowMenuId(item.id);
+                    }}
+                    onClick={() => toggleBought(item)}
+                    className={`scannable-card h-full relative z-10 p-4 ${item.bought ? 'status-verde' : 'status-gray'} cursor-pointer flex flex-col justify-between`}
+                  >
+                    <AnimatePresence>
+                      {showMenuId === item.id && (
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-2"
+                          onClick={(e) => { e.stopPropagation(); setShowMenuId(null); }}
+                        >
+                          <button 
+                            onClick={() => { setShowMenuId(null); openEditForm(item); }}
+                            className="flex items-center gap-2 font-bold text-xs"
+                          >
+                            <Edit size={14} /> Editar
+                          </button>
+                          <button onClick={() => deleteItem(item.id)} className="flex items-center gap-2 font-bold text-xs text-vermelho"><Trash2 size={14} /> Excluir</button>
+                          <button className="text-[8px] font-bold text-zinc-400 mt-1 uppercase">Fechar</button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    <div className={`flex flex-col h-full ${item.bought ? 'opacity-40' : ''}`}>
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="text-3xl">{item.emoji}</span>
+                        <p className={`font-black text-sm ${item.bought ? 'text-verde' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                          R$ {(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-bold text-base leading-tight ${item.bought ? 'line-through text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                          {item.name}
+                        </p>
+                        <div className="flex justify-between items-center mt-2">
+                          <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">Qtd: {item.quantity}</p>
+                          {item.bought && <CheckCircle size={14} className="text-verde" />}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
-              </motion.div>
-            </div>
-          ))
-        ) : (
+              ))}
+              
+              {/* Dashed Add New Item Card */}
+              <button
+                onClick={openAddForm}
+                className="bg-zinc-50/50 dark:bg-zinc-900/50 border-2 border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl flex flex-col items-center justify-center gap-2 opacity-60 hover:opacity-100 active:scale-95 transition-all text-zinc-400"
+              >
+                <Plus size={24} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Novo Item</span>
+              </button>
+            </>
+          ) : (
           <div className="col-span-2 flex flex-col items-center justify-center py-24 px-8 text-center bg-zinc-50/30 dark:bg-zinc-900/30 rounded-[3rem] border-2 border-dashed border-zinc-100 dark:border-zinc-800/50">
             <div className="w-24 h-24 bg-white dark:bg-zinc-800 rounded-[2.5rem] flex items-center justify-center shadow-2xl mb-8 border border-zinc-50 dark:border-zinc-700 animate-pulse-slow">
               <Plus size={40} className="text-verde" />
@@ -278,6 +305,7 @@ const ComprasScreen = () => {
         onSelect={handleShareWithFriend}
         user={user}
       />
+      {showTutorial && <SwipeTutorial onComplete={handleTutorialComplete} />}
     </div>
   );
 };

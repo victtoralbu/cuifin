@@ -9,8 +9,10 @@ import LoginScreen from './screens/LoginScreen';
 import { useAuth } from './context/AuthContext';
 import { dataService } from './lib/dataService';
 import { useEffect } from 'react';
+import { Bell } from 'lucide-react';
+import NotificationModal from './components/NotificationModal';
 
-const Header = ({ user, onLogout }) => {
+const Header = ({ user, onLogout, notificationCount, onShowNotifications }) => {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
@@ -23,36 +25,52 @@ const Header = ({ user, onLogout }) => {
           <h1 className="text-xl font-black italic tracking-tighter opacity-80">CuiFin</h1>
         </div>
         
-        <div className="relative">
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => onShowNotifications()}
+            className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 active:scale-90 transition-transform relative border border-zinc-200 dark:border-zinc-800"
+          >
+            <Bell size={20} />
+            {notificationCount > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-vermelho rounded-full border border-white dark:border-black" />
+            )}
+          </button>
           <button 
             onClick={() => setShowMenu(!showMenu)}
             className="w-10 h-10 rounded-full border border-white/40 dark:border-white/10 overflow-hidden active:scale-95 transition-transform shadow-inner"
           >
-            <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+            <img 
+              src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} 
+              alt={user.name} 
+              className="w-full h-full object-cover" 
+              onError={(e) => {
+                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`;
+              }}
+            />
           </button>
-
-          <AnimatePresence>
-            {showMenu && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="absolute right-0 mt-3 w-56 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/5 p-2 z-50 origin-top-right"
-              >
-                <div className="p-4 border-b border-black/5 dark:border-white/5 mb-1">
-                  <p className="font-bold text-sm truncate">{user.name}</p>
-                  <p className="text-[10px] text-zinc-500 truncate font-medium uppercase tracking-widest">{user.email}</p>
-                </div>
-                <button 
-                  onClick={() => { setShowMenu(false); onLogout(); }}
-                  className="w-full flex items-center gap-3 p-3 text-vermelho font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-vermelho/5 transition-colors"
-                >
-                  <LogOut size={16} /> Sair da Conta
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
+
+        <AnimatePresence>
+          {showMenu && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="absolute right-0 mt-3 w-56 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/5 p-2 z-50 origin-top-right"
+            >
+              <div className="p-4 border-b border-black/5 dark:border-white/5 mb-1">
+                <p className="font-bold text-sm truncate">{user.name}</p>
+                <p className="text-[10px] text-zinc-500 truncate font-medium uppercase tracking-widest">{user.email}</p>
+              </div>
+              <button 
+                onClick={() => { setShowMenu(false); onLogout(); }}
+                className="w-full flex items-center gap-3 p-3 text-vermelho font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-vermelho/5 transition-colors"
+              >
+                <LogOut size={16} /> Sair da Conta
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </header>
   );
@@ -109,6 +127,38 @@ function App() {
     updateTransaction, 
     deleteTransaction 
   } = useTransactions();
+  
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const data = await dataService.getNotifications();
+      setNotifications(data);
+    } catch (e) {
+      console.error('Error fetching notifications:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000); // 30s refresh
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleRespondToNotification = async (id, status) => {
+    try {
+      await dataService.respondToNotification(id, status);
+      fetchNotifications();
+      if (status === 'accepted') {
+        alert('Convite aceito! Agora vocês compartilham a lista de compras. 🛒');
+        window.location.reload(); // Force refresh to sync shared lists
+      }
+    } catch (e) {
+      console.error('Error responding to notification:', e);
+    }
+  };
 
   // Handle Invitations
   useEffect(() => {
@@ -167,7 +217,12 @@ function App() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100">
-      <Header user={user} onLogout={logout} />
+      <Header 
+        user={user} 
+        onLogout={logout} 
+        notificationCount={notifications.length}
+        onShowNotifications={() => setShowNotifications(true)}
+      />
       <main className="max-w-5xl mx-auto pb-36">
         <AnimatePresence mode="wait">
           <motion.div
@@ -182,6 +237,13 @@ function App() {
         </AnimatePresence>
       </main>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      
+      <NotificationModal 
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        notifications={notifications}
+        onRespond={handleRespondToNotification}
+      />
     </div>
   );
 }

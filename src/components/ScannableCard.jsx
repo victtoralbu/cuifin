@@ -1,22 +1,33 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, User, Paperclip, ChevronDown, ChevronUp, Edit, Trash2, CheckCircle } from 'lucide-react';
+import { Calendar, User, Paperclip, ChevronDown, ChevronUp, Edit, Trash2, CheckCircle, Share2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-const MOCK_AVATARS = {
-  '2': 'https://ui-avatars.com/api/?name=Joao&background=F39C12&color=fff',
-  '3': 'https://ui-avatars.com/api/?name=Maria&background=E74C3C&color=fff',
-  '4': 'https://ui-avatars.com/api/?name=Lucas&background=3498DB&color=fff',
-};
-
-const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
+const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = React.useRef(null);
 
+  const { user } = useAuth();
+  const isOwner = transaction.userId === user?.id;
+
+  const getFriendData = (id) => {
+    // If it's me, return 'Você'
+    if (id === user?.id) return { name: 'Você', avatar: user.avatar || `https://ui-avatars.com/api/?name=V&background=random` };
+    
+    const friend = friends.find(f => f.id === id);
+    if (!friend) return { name: 'Convidado Amigo', avatar: `https://ui-avatars.com/api/?name=A&background=random` };
+    return {
+      name: friend.name,
+      avatar: friend.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.name)}&background=random`
+    };
+  };
+
   const getStatusColor = (dueDate) => {
     if (!dueDate || transaction.status === 'pago') return 'status-gray';
     const today = new Date();
-    const due = new Date(dueDate);
+    today.setHours(0, 0, 0, 0); // Normalized today
+    const due = new Date(dueDate + 'T12:00:00'); // Safe local date
     const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
 
     if (diff < 0) return 'status-vermelho';
@@ -49,7 +60,7 @@ const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
 
       <motion.div 
         drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
+        dragConstraints={{ left: -200, right: 200 }}
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
         whileTap={{ scale: 0.95 }}
@@ -58,7 +69,7 @@ const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
           if (window.navigator.vibrate) window.navigator.vibrate(100);
           setShowMenu(true);
         }}
-        className={`scannable-card relative z-10 ${transaction.status === 'pago' ? 'bg-zinc-950 dark:bg-black border-zinc-900' : getStatusColor(transaction.dueDate)} transition-all duration-300 overflow-hidden h-full`}
+        className={`scannable-card relative z-10 ${transaction.status === 'pago' ? 'bg-zinc-950 dark:bg-black border-zinc-900' : getStatusColor(transaction.dueDate)} transition-all duration-300 overflow-hidden`}
       >
         <AnimatePresence>
           {showMenu && (
@@ -87,7 +98,7 @@ const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
         </AnimatePresence>
 
         <div 
-          className={`flex flex-col gap-1 cursor-pointer h-full p-3 ${transaction.status === 'pago' ? 'opacity-40' : ''}`}
+          className={`flex flex-col gap-1 cursor-pointer p-3 ${transaction.status === 'pago' ? 'opacity-40' : ''}`}
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex justify-between items-start">
@@ -109,13 +120,22 @@ const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
             </div>
             <div className="flex justify-between items-center mt-1">
               <p className="text-[11px] font-medium text-zinc-500">
-                {transaction.dueDate ? new Date(transaction.dueDate).toLocaleDateString('pt-BR') : 'Sem data'}
+                {transaction.dueDate ? transaction.dueDate.split('-').reverse().join('/') : 'Sem data'}
               </p>
               {transaction.splitWith?.length > 0 && (
                 <div className="flex -space-x-1.5 overflow-hidden">
-                  {transaction.splitWith.map(id => (
-                    <img key={id} className="inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-zinc-900 object-cover" src={MOCK_AVATARS[id]} alt="" />
-                  ))}
+                  {transaction.splitWith.map(id => {
+                    const friend = getFriendData(id);
+                    return (
+                      <img 
+                        key={id} 
+                        className="inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-zinc-900 object-cover bg-zinc-100 shadow-sm" 
+                        src={friend.avatar} 
+                        alt={friend.name}
+                        title={friend.name} 
+                      />
+                    );
+                  })}
                   <span className="text-[8px] font-black text-orange-500 ml-1 mt-0.5">÷</span>
                 </div>
               )}
@@ -147,16 +167,40 @@ const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
 
                 <div className="space-y-1 text-left">
                   <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">Divisão</label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2">
                     {transaction.splitWith?.length ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex -space-x-2">
-                           {transaction.splitWith.map(id => (
-                            <img key={id} className="h-6 w-6 rounded-full border border-white dark:border-zinc-900 shadow-sm object-cover" src={MOCK_AVATARS[id]} alt="" />
-                          ))}
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-2">
+                            {transaction.splitWith.map(id => {
+                              const friend = getFriendData(id);
+                              return (
+                                <img 
+                                  key={id} 
+                                  className="h-6 w-6 rounded-full border border-white dark:ring-zinc-900 shadow-sm object-cover bg-zinc-100" 
+                                  src={friend.avatar} 
+                                  alt={friend.name} 
+                                  title={friend.name}
+                                />
+                              );
+                            })}
+                          </div>
+                          <span className="text-xs font-black text-yellow-500 uppercase tracking-tighter">
+                            {!isOwner && `Criado por ${getFriendData(transaction.userId).name} • `}
+                            {transaction.groupId ? (
+                              `Dividido com o Grupo ${transaction.groupName || 'Identificado'}`
+                            ) : (
+                              `Dividido com ${transaction.splitWith.map(id => getFriendData(id).name).join(', ')}`
+                            )}
+                          </span>
                         </div>
-                        <span className="text-xs font-bold text-orange-500 italic">Dividido igualmente</span>
-                      </div>
+                        {transaction.groupId && (
+                          <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 opacity-60">
+                            <span className="w-1.5 h-1.5 rounded-full bg-verde" />
+                            {transaction.splitWith.length + 1} Participantes no total
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <span className="text-xs font-bold text-zinc-500">Uso pessoal</span>
                     )}

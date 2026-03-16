@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Calendar, Users, Smile, User, Plus } from 'lucide-react';
 import { dataService } from '../lib/dataService';
+import { useAuth } from '../context/AuthContext';
 
 const PRESET_EMOJIS = ['💸', '🏠', '🍔', '⚡', '🌐', '🚗', '🛒', '💊', '🍿', '🎮', '🍎', '🍺'];
 
@@ -9,25 +10,33 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
   const [isDivided, setIsDivided] = useState(false);
   const [showCustomEmoji, setShowCustomEmoji] = useState(false);
   const [friends, setFriends] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
     dueDate: new Date().toISOString().split('T')[0],
     type: 'despesa',
     emoji: '💸',
-    splitWith: [] // Array of user IDs
+    splitWith: [], // Array of user IDs
+    groupId: null,
+    groupName: null
   });
+  const { user } = useAuth();
 
   useEffect(() => {
-    const fetchFriends = async () => {
+    const fetchData = async () => {
       try {
-        const data = await dataService.getFriends();
-        setFriends(data);
+        const [friendsData, groupsData] = await Promise.all([
+          dataService.getFriends(),
+          dataService.getGroups()
+        ]);
+        setFriends(friendsData);
+        setGroups(groupsData);
       } catch (e) {
-        console.error('Error fetching friends:', e);
+        console.error('Error fetching data:', e);
       }
     };
-    if (isOpen) fetchFriends();
+    if (isOpen) fetchData();
   }, [isOpen]);
 
   useEffect(() => {
@@ -35,7 +44,9 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
       setFormData({
         ...initialData,
         amount: initialData.amount.toString(),
-        splitWith: initialData.splitWith || []
+        splitWith: initialData.splitWith || [],
+        groupId: initialData.groupId || null,
+        groupName: initialData.groupName || null
       });
       setIsDivided(!!(initialData.splitWith && initialData.splitWith.length > 0));
       setShowCustomEmoji(!PRESET_EMOJIS.includes(initialData.emoji));
@@ -43,10 +54,12 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
       setFormData({
         title: '',
         amount: '',
-        dueDate: new Date().toISOString().split('T')[0],
+        dueDate: new Date().toLocaleDateString('en-CA'),
         type: 'despesa',
         emoji: '💸',
-        splitWith: []
+        splitWith: [],
+        groupId: null,
+        groupName: null
       });
       setIsDivided(false);
       setShowCustomEmoji(false);
@@ -55,10 +68,50 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
 
   const toggleUser = (userId) => {
     const current = formData.splitWith;
+    // If we were in a group split, clicking a friend should clear the group
+    // and switch to individual split mode.
+    if (formData.groupId) {
+      setFormData({ 
+        ...formData, 
+        splitWith: [userId],
+        groupId: null,
+        groupName: null
+      });
+      return;
+    }
+
     if (current.includes(userId)) {
       setFormData({ ...formData, splitWith: current.filter(id => id !== userId) });
     } else {
       setFormData({ ...formData, splitWith: [...current, userId] });
+    }
+  };
+
+  const toggleGroup = (group) => {
+    // IMPORTANT: Exclude the current user from the splitWith array
+    // shareCount = splitWith.length + 1
+    const groupMemberIds = group.members
+      .filter(m => m.user_id && m.user_id !== null && m.user_id !== user.id)
+      .map(m => m.user_id);
+    
+    const isThisGroupSelected = formData.groupId === group.id;
+
+    if (isThisGroupSelected) {
+      // Deselect group -> Back to personal
+      setFormData({ 
+        ...formData, 
+        splitWith: [],
+        groupId: null,
+        groupName: null
+      });
+    } else {
+      // Select group -> Clear all other individual selections and use group members
+      setFormData({ 
+        ...formData, 
+        splitWith: groupMemberIds,
+        groupId: group.id,
+        groupName: group.name
+      });
     }
   };
 
@@ -110,6 +163,100 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                   Dividida
                 </button>
               </div>
+
+              {/* Split Selection - MOVED UP */}
+              <AnimatePresence>
+                {isDivided && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-4 overflow-hidden"
+                  >
+                    <div className="flex flex-col gap-6 overflow-x-auto pt-4 pb-4 no-scrollbar px-1">
+                      {/* Groups List */}
+                      {groups.length > 0 && (
+                        <div className="flex gap-4 items-center mb-2 justify-center">
+                          {groups.map(g => {
+                            const groupMemberIds = g.members
+                              .filter(m => m.user_id && m.user_id !== null)
+                              .map(m => m.user_id);
+                            const isGroupSelected = groupMemberIds.length > 0 && groupMemberIds.every(id => formData.splitWith.includes(id));
+                            
+                            return (
+                              <button
+                                key={g.id}
+                                type="button"
+                                onClick={() => toggleGroup(g)}
+                                className={`flex flex-col items-center gap-1 transition-all flex-shrink-0 animate-in fade-in slide-in-from-left duration-300`}
+                              >
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${isGroupSelected ? 'bg-orange-500 border-orange-500 text-white scale-110 shadow-lg shadow-orange-500/20' : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 text-orange-500'}`}>
+                                  <Users size={20} />
+                                </div>
+                                <span className={`text-[8px] font-black uppercase tracking-tighter max-w-[48px] truncate ${isGroupSelected ? 'text-orange-500' : 'text-zinc-400'}`}>
+                                  {g.name}
+                                </span>
+                              </button>
+                            );
+                          })}
+                          <div className="w-px h-8 bg-zinc-100 dark:bg-zinc-800 mx-2 flex-shrink-0" />
+                          
+                          {/* Friends List - Existing Rendering */}
+                          {friends.length > 0 ? friends.map(u => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => toggleUser(u.id)}
+                              className={`flex flex-col items-center gap-1 transition-all flex-shrink-0 animate-in fade-in slide-in-from-right duration-300`}
+                            >
+                              <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.splitWith.includes(u.id) ? 'border-orange-500 scale-110 shadow-lg shadow-orange-500/20' : 'border-transparent grayscale opacity-50'}`}>
+                                <img
+                                  src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`}
+                                  className="w-full h-full rounded-full object-cover"
+                                  alt={u.name}
+                                />
+                              </div>
+                              <span className={`text-[8px] font-black uppercase tracking-tighter max-w-[48px] truncate ${formData.splitWith.includes(u.id) ? 'text-orange-500' : 'text-zinc-400'}`}>
+                                {u.name.split(' ')[0]}
+                              </span>
+                            </button>
+                          )) : (
+                            <p className="text-[10px] font-bold text-zinc-400 italic">Conecte amigos</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* If no groups but has friends, just show friends centered */}
+                      {groups.length === 0 && (
+                        <div className="flex justify-center gap-6">
+                           {friends.length > 0 ? friends.map(u => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => toggleUser(u.id)}
+                              className={`flex flex-col items-center gap-2 transition-all flex-shrink-0`}
+                            >
+                              <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.splitWith.includes(u.id) ? 'border-orange-500 scale-110 shadow-lg shadow-orange-500/20' : 'border-transparent grayscale opacity-50'}`}>
+                                <img
+                                  src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`}
+                                  className="w-full h-full rounded-full object-cover"
+                                  alt={u.name}
+                                />
+                              </div>
+                              <span className={`text-[8px] font-black uppercase tracking-tighter max-w-[48px] truncate ${formData.splitWith.includes(u.id) ? 'text-orange-500' : 'text-zinc-400'}`}>
+                                {u.name.split(' ')[0]}
+                              </span>
+                            </button>
+                          )) : (
+                            <p className="text-[10px] text-zinc-400 italic py-2">Nenhum amigo encontrado.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
 
               {/* Transaction Type Toggle */}
               <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-2xl">
@@ -164,7 +311,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
             {/* Emoji Selection Horizontal Scroll */}
             <div className="space-y-4">
               <label className="text-[10px] uppercase font-black text-zinc-400 tracking-wider block text-center">Identificado por</label>
-              <div className="flex overflow-x-auto gap-4 pb-2 px-1 no-scrollbar scroll-smooth">
+              <div className="flex overflow-x-auto gap-4 pt-4 pb-4 px-1 no-scrollbar scroll-smooth justify-center">
                 {PRESET_EMOJIS.map(e => (
                   <button
                     key={e}
@@ -214,53 +361,20 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
             <div className="grid grid-cols-1 gap-4">
               {/* Due Date */}
               <div className="space-y-4">
-                <label className="text-[10px] uppercase font-black text-zinc-400 tracking-wider block text-center italic">📅 DATA DE VENCIMENTO / RECEBIMENTO</label>
+                <label className="text-[10px] uppercase font-black text-zinc-400 tracking-wider block text-center">📅 DATA DE VENCIMENTO / RECEBIMENTO</label>
                 <div className="flex justify-center">
-                   <input
+                  <input
                     type="date"
                     required
                     value={formData.dueDate}
                     onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                    className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-10 rounded-[2rem] font-black text-xl text-center focus:ring-2 focus:ring-verde/20 transition-all"
+                    className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-15 rounded-[2rem] font-black text-xl text-center focus:ring-2 focus:ring-verde/20 transition-all"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Split Selection */}
-            <AnimatePresence>
-              {isDivided && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4 overflow-hidden pt-4 border-t border-zinc-100 dark:border-zinc-900"
-                >
-                  <label className="text-[10px] uppercase font-black text-orange-500 tracking-wider block text-center">👥 Dividir com amigos</label>
-                  <div className="flex justify-center gap-6 overflow-x-auto pb-2 no-scrollbar">
-                    {friends.length > 0 ? friends.map(u => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        onClick={() => toggleUser(u.id)}
-                        className={`flex flex-col items-center gap-2 transition-all flex-shrink-0`}
-                      >
-                        <div className={`w-14 h-14 rounded-full border-2 transition-all p-0.5 ${formData.splitWith.includes(u.id) ? 'border-orange-500 scale-110 shadow-lg shadow-orange-500/20' : 'border-transparent grayscale opacity-50'}`}>
-                          <img 
-                            src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`} 
-                            className="w-full h-full rounded-full object-cover" 
-                            alt={u.name} 
-                          />
-                        </div>
-                        <span className={`text-[10px] font-black uppercase tracking-tighter ${formData.splitWith.includes(u.id) ? 'text-orange-500' : 'text-zinc-500'}`}>{u.name}</span>
-                      </button>
-                    )) : (
-                      <p className="text-[10px] text-zinc-400 italic py-4">Nenhum amigo encontrado. Convide alguém!</p>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+
           </form>
         </motion.div>
       )}

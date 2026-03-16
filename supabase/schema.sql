@@ -93,7 +93,11 @@ CREATE POLICY "Users can view their own friends" ON public.friends
 
 DROP POLICY IF EXISTS "Users can add friends" ON public.friends;
 CREATE POLICY "Users can add friends" ON public.friends
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (auth.uid() = user_id OR auth.uid() = friend_id);
+
+DROP POLICY IF EXISTS "Users can remove friends" ON public.friends;
+CREATE POLICY "Users can remove friends" ON public.friends
+  FOR DELETE USING (auth.uid() = user_id OR auth.uid() = friend_id);
 
 -- Allow users to see profiles of their friends
 DROP POLICY IF EXISTS "Users can view profiles of their friends" ON public.profiles;
@@ -105,6 +109,11 @@ CREATE POLICY "Users can view profiles of their friends" ON public.profiles
          OR (friend_id = auth.uid() AND user_id = public.profiles.id)
     )
   );
+
+DROP POLICY IF EXISTS "Any user can find another profile by email" ON public.profiles;
+CREATE POLICY "Any user can find another profile by email" ON public.profiles
+  FOR SELECT USING (true);
+
 
 -- Create groups table
 CREATE TABLE IF NOT EXISTS public.groups (
@@ -140,5 +149,62 @@ CREATE POLICY "Users can manage members of their groups" ON public.group_members
     EXISTS (
       SELECT 1 FROM public.groups
       WHERE id = group_id AND user_id = auth.uid()
+    )
+  );
+
+-- Create notifications table
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  sender_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  receiver_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL, -- e.g., 'shopping_invite'
+  status TEXT DEFAULT 'pending' NOT NULL, -- pending, accepted, rejected
+  data JSONB DEFAULT '{}'::jsonb, -- Store extra info like list name
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS on notifications
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their notifications" ON public.notifications;
+CREATE POLICY "Users can view their notifications" ON public.notifications
+  FOR SELECT USING (auth.uid() = receiver_id OR auth.uid() = sender_id);
+
+DROP POLICY IF EXISTS "Users can create notifications" ON public.notifications;
+CREATE POLICY "Users can create notifications" ON public.notifications
+  FOR INSERT WITH CHECK (auth.uid() = sender_id);
+
+DROP POLICY IF EXISTS "Users can update their notifications" ON public.notifications;
+CREATE POLICY "Users can update their notifications" ON public.notifications
+  FOR UPDATE USING (auth.uid() = receiver_id);
+
+-- Create shopping_shares table
+CREATE TABLE IF NOT EXISTS public.shopping_shares (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  owner_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  collaborator_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(owner_id, collaborator_id)
+);
+
+-- Enable RLS on shopping_shares
+ALTER TABLE public.shopping_shares ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their shopping shares" ON public.shopping_shares;
+CREATE POLICY "Users can view their shopping shares" ON public.shopping_shares
+  FOR SELECT USING (auth.uid() = owner_id OR auth.uid() = collaborator_id);
+
+DROP POLICY IF EXISTS "System can manage shopping shares" ON public.shopping_shares;
+CREATE POLICY "System can manage shopping shares" ON public.shopping_shares
+  FOR ALL USING (auth.uid() = owner_id OR auth.uid() = collaborator_id);
+
+-- Update shopping_items RLS to allow shared access
+DROP POLICY IF EXISTS "Users can manage their own shopping items" ON public.shopping_items;
+CREATE POLICY "Users can manage shopping items" ON public.shopping_items
+  FOR ALL USING (
+    auth.uid() = user_id OR 
+    EXISTS (
+      SELECT 1 FROM public.shopping_shares
+      WHERE owner_id = public.shopping_items.user_id AND collaborator_id = auth.uid()
     )
   );

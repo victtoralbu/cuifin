@@ -1,14 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ScannableCard from '../components/ScannableCard';
 import TransactionForm from '../components/TransactionForm';
+import SwipeTutorial from '../components/SwipeTutorial';
 import { Plus, Calendar as CalendarIcon, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { dataService } from '../lib/dataService';
 
 const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
   const [selectedMonth, setSelectedMonth] = useState(null); // focused month key
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [friends, setFriends] = useState([]);
+
+  useEffect(() => {
+    const fetchFriends = async () => {
+      try {
+        const data = await dataService.getFriends();
+        setFriends(data);
+      } catch (e) {
+        console.error('Error fetching friends:', e);
+      }
+    };
+    fetchFriends();
+  }, []);
 
   if (loading && transactions.length === 0) {
     return (
@@ -25,14 +41,15 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   const getAllMonths = () => {
     const months = {};
     allTransactions.forEach(t => {
-      const date = new Date(t.dueDate || Date.now());
+      // Parse YYYY-MM-DD string as local date by appending time
+      const date = t.dueDate ? new Date(t.dueDate + 'T12:00:00') : new Date();
       const key = `${date.toLocaleString('pt-BR', { month: 'long' })} ${date.getFullYear()}`;
       if (!months[key]) months[key] = { name: monthCapitalize(date.toLocaleString('pt-BR', { month: 'long' })), year: date.getFullYear(), total: 0, items: [] };
-      
+
       const shareCount = (t.splitWith?.length || 0) + 1;
       const amount = t.amount / shareCount;
       const impact = t.type === 'receita' ? t.amount : -amount;
-      
+
       // We still want the "impact" to reflect what's left to pay or what was planned
       months[key].total += impact;
       months[key].items.push(t);
@@ -68,9 +85,28 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   const balance = totals.income - totals.expense;
 
   const handleSave = (data) => {
-    if (editingItem) onUpdate(data);
-    else onAdd(data);
+    if (editingItem) {
+      onUpdate(data);
+    } else {
+      onAdd(data);
+      // Check if tutorial should be shown
+      const hasSeenTutorial = localStorage.getItem('cuifin_swipe_tutorial_seen');
+      if (!hasSeenTutorial) {
+        setShowTutorial(true);
+      }
+    }
     setEditingItem(null);
+  };
+
+  const handleTutorialComplete = () => {
+    setShowTutorial(false);
+    localStorage.setItem('cuifin_swipe_tutorial_seen', 'true');
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
+      onDelete(id);
+    }
   };
 
   const openEditForm = (item) => {
@@ -80,9 +116,9 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
 
   if (viewMode === 'calendar') {
     return (
-      <div className="p-4">
+      <div className="p-4 pt-24">
         <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => setViewMode('list')} className="p-2 bg-zinc-100 dark:bg-zinc-900 rounded-full">
+          <button onClick={() => setViewMode('list')} className="p-3 bg-zinc-100 dark:bg-zinc-900 rounded-2xl active:scale-95 transition-all">
             <ArrowLeft size={20} />
           </button>
           <h2 className="text-2xl font-black tracking-tight">Selecionar Mês</h2>
@@ -104,8 +140,8 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
                 <h3 className="text-lg font-black">{data.name}</h3>
               </div>
               <div>
-                <p className={`text-sm font-black text-verde`}>
-                  R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                <p className={`text-sm font-black ${data.total >= 0 ? 'text-verde' : 'text-vermelho'}`}>
+                  R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-[8px] font-bold text-zinc-400 uppercase mt-1 tracking-tighter">Impacto no Saldo</p>
               </div>
@@ -132,13 +168,13 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
         <div className="flex gap-2 pb-1">
           <button
             onClick={() => setViewMode('calendar')}
-            className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 p-2.5 rounded-full active:scale-95 transition-all"
+            className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 p-3 rounded-2xl active:scale-95 transition-all shadow-sm border border-zinc-200 dark:border-zinc-800"
           >
             <CalendarIcon size={22} />
           </button>
           <button
             onClick={() => setIsFormOpen(true)}
-            className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-2.5 rounded-full active:scale-95 transition-all"
+            className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-3 rounded-2xl active:scale-95 transition-all shadow-xl shadow-zinc-900/10"
           >
             <Plus size={22} />
           </button>
@@ -152,8 +188,8 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
               {!selectedMonth && (
                 <div className="bg-zinc-900 dark:bg-zinc-800 text-white p-3 px-4 rounded-xl flex justify-between items-center mb-4 shadow-lg">
                   <h3 className="font-bold capitalize text-sm tracking-wide">{month}</h3>
-                  <p className="font-black text-verde text-sm">
-                    R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <p className={`font-black text-sm ${data.total >= 0 ? 'text-verde' : 'text-vermelho'}`}>
+                    R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               )}
@@ -162,24 +198,34 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
                   <ScannableCard
                     key={t.id}
                     transaction={t}
+                    friends={friends}
                     onUpdate={onUpdate}
-                    onDelete={onDelete}
+                    onDelete={handleDelete}
                     onEdit={openEditForm}
                   />
                 ))}
+
+                {/* Dashed Add New Item Card */}
+                <button
+                  onClick={() => setIsFormOpen(true)}
+                  className="bg-zinc-50/50 dark:bg-zinc-900/50 border-2 border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl flex flex-col items-center justify-center gap-2 opacity-60 hover:opacity-100 active:scale-95 transition-all text-zinc-400"
+                >
+                  <Plus size={24} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Novo Item</span>
+                </button>
               </div>
             </div>
           ))
         ) : (
           <div className="text-center py-20">
-            <button 
+            <button
               onClick={() => setIsFormOpen(true)}
-              className="w-16 h-16 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 active:scale-95 transition-all shadow-xl shadow-verde/10 ring-4 ring-zinc-50 dark:ring-zinc-900"
+              className="w-16 h-16 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-4 active:scale-95 transition-all shadow-xl shadow-verde/10 ring-4 ring-zinc-50 dark:ring-zinc-900"
             >
               <Plus size={32} />
             </button>
             <p className="text-zinc-400 font-bold">Nenhum item para este período</p>
-            <button 
+            <button
               onClick={() => setIsFormOpen(true)}
               className="text-[10px] font-black uppercase text-verde mt-2 tracking-widest"
             >
@@ -195,7 +241,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
           <div>
             <p className="text-[10px] font-bold uppercase text-zinc-400 tracking-tighter">Saldo Mensal</p>
             <p className={`text-xl font-black ${balance >= 0 ? 'text-verde' : 'text-vermelho'}`}>
-              R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
           <div className="text-right">
@@ -204,10 +250,10 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
             </p>
             <div className="flex gap-2 mt-1">
               <span className="text-[9px] font-bold text-zinc-400 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">
-                + R$ {totals.income.toFixed(0)}
+                + R$ {totals.income.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-[9px] font-bold text-zinc-400 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">
-                - R$ {totals.expense.toFixed(0)}
+                - R$ {totals.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -220,6 +266,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
         onSave={handleSave}
         initialData={editingItem}
       />
+      {showTutorial && <SwipeTutorial onComplete={handleTutorialComplete} />}
     </div>
   );
 };

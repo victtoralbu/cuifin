@@ -12,6 +12,7 @@ export const dataService = {
     // Map snake_case from DB to camelCase used in app
     return data.map(t => ({
       id: t.id,
+      userId: t.user_id,
       type: t.type,
       amount: parseFloat(t.amount),
       title: t.title,
@@ -19,7 +20,8 @@ export const dataService = {
       dueDate: t.due_date,
       status: t.status,
       splitWith: t.split_with || [],
-      installments: t.installments
+      installments: t.installments,
+      groupId: t.group_id
     }));
   },
 
@@ -38,7 +40,8 @@ export const dataService = {
         due_date: transaction.dueDate,
         status: transaction.status,
         split_with: transaction.splitWith,
-        installments: transaction.installments
+        installments: transaction.installments,
+        group_id: transaction.groupId
       }])
       .select()
       .single();
@@ -57,6 +60,7 @@ export const dataService = {
     if (updates.status) dbUpdates.status = updates.status;
     if (updates.splitWith) dbUpdates.split_with = updates.splitWith;
     if (updates.installments) dbUpdates.installments = updates.installments;
+    if (updates.groupId !== undefined) dbUpdates.group_id = updates.groupId;
 
     const { data, error } = await supabase
       .from('transactions')
@@ -80,9 +84,23 @@ export const dataService = {
 
   // --- SHOPPING LIST ---
   async getShoppingItems() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // Get lists shared with the user
+    const { data: shares, error: sharesError } = await supabase
+      .from('shopping_shares')
+      .select('owner_id')
+      .eq('collaborator_id', user.id);
+
+    if (sharesError) throw sharesError;
+
+    const ownerIds = [user.id, ...(shares?.map(s => s.owner_id) || [])];
+
     const { data, error } = await supabase
       .from('shopping_items')
       .select('*')
+      .in('user_id', ownerIds)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -144,29 +162,63 @@ export const dataService = {
     if (!user) return [];
 
     // Get friends where user is either user_id or friend_id
-    const { data, error } = await supabase
+    const { data: friendsData, error: friendsError } = await supabase
       .from('friends')
-      .select(`
-        id,
-        user_id,
-        friend_id,
-        friend:profiles!friends_friend_id_fkey(id, email, full_name, avatar_url),
-        user:profiles!friends_user_id_fkey(id, email, full_name, avatar_url)
-      `)
+      .select('user_id, friend_id')
       .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
 
-    if (error) throw error;
+    if (friendsError) throw friendsError;
+    if (!friendsData || friendsData.length === 0) return [];
 
-    // Extract the profile that is NOT the current user
-    return data.map(f => {
-      const profile = f.user_id === user.id ? f.user : f.friend;
-      return {
-        id: profile.id,
-        name: profile.full_name,
-        avatar: profile.avatar_url,
-        email: profile.email
-      };
-    });
+    // Get unique friend IDs (excluding the current user)
+    const friendIds = [...new Set(friendsData.map(f => 
+      f.user_id === user.id ? f.friend_id : f.user_id
+    ))];
+
+    if (friendIds.length === 0) return [];
+
+    // Fetch profiles for those IDs
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, avatar_url')
+      .in('id', friendIds);
+
+    if (profilesError) throw profilesError;
+
+    return profiles.map(p => ({
+      id: p.id,
+      name: p.full_name,
+      avatar: p.avatar_url,
+      email: p.email
+    }));
+  },
+
+  async addFriendByEmail(email) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+    if (user.email === email) throw new Error('Você não pode adicionar a si mesmo!');
+
+    // Find profile by email
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error('Usuário não encontrado com este e-mail');
+    }
+
+    // Add friendship both ways
+    const { error: friendError } = await supabase
+      .from('friends')
+      .upsert([
+        { user_id: user.id, friend_id: profile.id },
+        { user_id: profile.id, friend_id: user.id }
+      ], { onConflict: 'user_id,friend_id' });
+
+    if (friendError) throw friendError;
+    return profile;
   },
 
   async addFriendByInvite(inviterId) {
@@ -211,6 +263,7 @@ export const dataService = {
         *,
         members:group_members(*)
       `)
+      .eq('user_id', user.id) // Only groups I created or am part of? (Currently only creators for simplicity)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -281,5 +334,72 @@ export const dataService = {
       .eq('id', memberId);
     
     if (error) throw error;
+  },
+
+  // --- NOTIFICATIONS ---
+  async getNotifications() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .select(`
+        *,
+        sender:profiles!sender_id(full_name, avatar_url)
+      `)
+      .eq('receiver_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data.map(n => ({
+      id: n.id,
+      type: n.type,
+      sender: {
+        name: n.sender.full_name,
+        avatar: n.sender.avatar_url
+      },
+      data: n.data,
+      createdAt: n.created_at
+    }));
+  },
+
+  async sendShoppingInvite(friendId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { error } = await supabase
+      .from('notifications')
+      .insert([{
+        sender_id: user.id,
+        receiver_id: friendId,
+        type: 'shopping_invite',
+        status: 'pending'
+      }]);
+
+    if (error) throw error;
+  },
+
+  async respondToNotification(notificationId, status) {
+    const { data: notification, error: getError } = await supabase
+      .from('notifications')
+      .update({ status })
+      .eq('id', notificationId)
+      .select()
+      .single();
+
+    if (getError) throw getError;
+
+    if (status === 'accepted' && notification.type === 'shopping_invite') {
+      // Create share record
+      const { error: shareError } = await supabase
+        .from('shopping_shares')
+        .upsert([{
+          owner_id: notification.sender_id,
+          collaborator_id: notification.receiver_id
+        }], { onConflict: 'owner_id,collaborator_id' });
+
+      if (shareError) throw shareError;
+    }
   }
 };
