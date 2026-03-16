@@ -70,6 +70,15 @@ const MaisScreen = ({ forceView }) => {
     setGroups([...groups, { id: Date.now().toString(), name, members: [{ name: 'Você', paid: 0 }] }]);
   };
 
+  const updateGroup = (id, newName) => {
+    setGroups(groups.map(g => g.id === id ? { ...g, name: newName } : g));
+  };
+
+  const deleteGroup = (id) => {
+    if (window.navigator.vibrate) window.navigator.vibrate([10, 30]);
+    setGroups(groups.filter(g => g.id !== id));
+  };
+
   const addMember = (groupId, name) => {
     setGroups(groups.map(g => 
       g.id === groupId ? { ...g, members: [...g.members, { name, paid: 0 }] } : g
@@ -96,37 +105,55 @@ const MaisScreen = ({ forceView }) => {
 
         <div className="space-y-4">
           {groups.map(group => (
-            <div key={group.id} className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg">{group.name}</h3>
-                <button 
-                  onClick={() => openForm('Novo Membro', (name) => addMember(group.id, name))}
-                  className="text-xs font-bold uppercase text-zinc-400 p-2"
-                >
-                  + Membro
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-end border-b border-zinc-50 dark:border-zinc-800 pb-2">
-                  <p className="text-[10px] font-bold uppercase text-zinc-400">Transferências Inteligentes</p>
-                </div>
-                {calculateSmartTransfers(group.members).length > 0 ? (
-                  calculateSmartTransfers(group.members).map((t, idx) => (
-                    <div key={idx} className="bg-zinc-50 dark:bg-zinc-800 p-3 rounded-lg flex justify-between items-center">
-                      <span className="text-sm font-medium">{t.from} ➔ {t.to}</span>
-                      <span className="font-black text-verde">R$ {t.amount.toFixed(2)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-zinc-400 italic">Saldos zerados.</p>
-                )}
+            <div key={group.id} className="relative">
+              {/* Background Icons for Swipe */}
+              <div className="absolute inset-0 flex items-center justify-between px-6 rounded-2xl opacity-40">
+                <Edit size={24} className="text-zinc-400" />
+                <Trash2 size={24} className="text-vermelho" />
               </div>
 
-              <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800 grid grid-cols-2 gap-2">
-                <div className="text-[10px] text-zinc-400 font-bold uppercase">Membros: {group.members.length}</div>
-                <div className="text-[10px] text-zinc-400 font-bold uppercase text-right">Total: R$ {group.members.reduce((s, m) => s + m.paid, 0).toFixed(2)}</div>
-              </div>
+              <motion.div
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.6}
+                onDragEnd={(e, info) => {
+                  if (info.offset.x < -80) deleteGroup(group.id);
+                  else if (info.offset.x > 80) openForm('Editar Grupo', (name) => updateGroup(group.id, name), group.name);
+                }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm relative z-10"
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg">{group.name}</h3>
+                  <button 
+                    onClick={() => openForm('Novo Membro', (name) => addMember(group.id, name))}
+                    className="text-xs font-bold uppercase text-zinc-400 p-2"
+                  >
+                    + Membro
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end border-b border-zinc-50 dark:border-zinc-800 pb-2">
+                    <p className="text-[10px] font-bold uppercase text-zinc-400">Transferências Inteligentes</p>
+                  </div>
+                  {calculateSmartTransfers(group.members).length > 0 ? (
+                    calculateSmartTransfers(group.members).map((t, idx) => (
+                      <div key={idx} className="bg-zinc-50 dark:bg-zinc-800 p-3 rounded-lg flex justify-between items-center">
+                        <span className="text-sm font-medium">{t.from} ➔ {t.to}</span>
+                        <span className="font-black text-verde">R$ {t.amount.toFixed(2)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-zinc-400 italic">Saldos zerados.</p>
+                  )}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800 grid grid-cols-2 gap-2">
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase">Membros: {group.members.length}</div>
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase text-right">Total: R$ {group.members.reduce((s, m) => s + m.paid, 0).toFixed(2)}</div>
+                </div>
+              </motion.div>
             </div>
           ))}
         </div>
