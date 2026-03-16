@@ -66,7 +66,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
 
   return (
     <nav className="fixed bottom-6 left-6 right-6 z-50 pointer-events-none">
-      <div className="max-w-lg mx-auto bg-white/30 dark:bg-black/30 backdrop-blur-3xl border border-white/20 dark:border-white/5 rounded-[32px] p-2 flex justify-around items-center shadow-2xl shadow-black/10 pointer-events-auto relative overflow-hidden">
+      <div className="max-w-lg mx-auto bg-white/30 dark:bg-black/30 backdrop-blur-3xl border border-white/20 dark:border-white/5 rounded-[32px] p-3 flex justify-around items-center shadow-2xl shadow-black/10 pointer-events-auto relative overflow-hidden">
         {/* Subtle inner reflection */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
@@ -74,7 +74,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`flex flex-col items-center justify-center py-2 px-4 rounded-2xl relative transition-all duration-500 ${
+            className={`flex flex-col items-center justify-center py-2 px-5 rounded-2xl relative transition-all duration-500 ${
               activeTab === tab.id ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 opacity-60 hover:opacity-100'
             }`}
           >
@@ -87,7 +87,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
             {activeTab === tab.id && (
               <motion.div
                 layoutId="activeTabIndicator"
-                className="absolute inset-x-1.5 inset-y-1 bg-white/80 dark:bg-white/10 rounded-[20px] shadow-sm -z-0"
+                className="absolute inset-x-1 inset-y-1 bg-white/80 dark:bg-white/10 rounded-[22px] shadow-sm -z-0"
                 transition={{ type: 'spring', bounce: 0.3, duration: 0.6 }}
               />
             )}
