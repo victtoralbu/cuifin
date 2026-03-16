@@ -218,7 +218,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
                 {/* Dashed Add New Item Card */}
                 <button
                   onClick={() => setIsFormOpen(true)}
-                  className="bg-zinc-50/50 dark:bg-zinc-900/50 border-2 border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl flex flex-col items-center justify-center gap-2 opacity-60 hover:opacity-100 active:scale-95 transition-all text-zinc-400"
+                  className="bg-zinc-50/50 dark:bg-zinc-900/50 border-2 border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-3xl flex flex-col items-center justify-center gap-2 opacity-60 hover:opacity-100 active:scale-95 transition-all text-zinc-400 h-full min-h-[120px]"
                 >
                   <Plus size={24} />
                   <span className="text-[10px] font-black uppercase tracking-widest">Novo Item</span>

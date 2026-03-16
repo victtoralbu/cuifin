@@ -46,7 +46,7 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
   };
 
   return (
-    <div className={`relative ${isExpanded ? 'col-span-2' : ''}`}>
+    <div className={`relative h-full ${isExpanded ? 'col-span-2' : ''}`}>
       <div className="absolute inset-0 flex items-center justify-between px-6 rounded-xl overflow-hidden opacity-50 bg-zinc-100 dark:bg-zinc-800/50">
         <div className="flex items-center gap-2 text-zinc-400">
           <Edit size={24} />
@@ -69,7 +69,7 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
           if (window.navigator.vibrate) window.navigator.vibrate(100);
           setShowMenu(true);
         }}
-        className={`scannable-card relative z-10 ${transaction.status === 'pago' ? 'bg-zinc-950 dark:bg-black border-zinc-900' : getStatusColor(transaction.dueDate)} transition-all duration-300 overflow-hidden`}
+        className={`scannable-card relative z-10 h-full ${transaction.status === 'pago' ? 'bg-zinc-950 dark:bg-black border-zinc-900' : getStatusColor(transaction.dueDate)} transition-all duration-300 overflow-hidden`}
       >
         <AnimatePresence>
           {showMenu && (
@@ -107,7 +107,7 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
               <p className={`font-black text-sm ${transaction.status === 'pago' ? 'text-zinc-500 line-through' : (transaction.type === 'receita' ? 'text-verde' : (getStatusColor(transaction.dueDate) === 'status-vermelho' ? 'text-vermelho' : 'text-zinc-900 dark:text-zinc-100'))}`}>
                 {transaction.type === 'receita' ? '+' : ''} R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 {transaction.splitWith?.length > 0 && (
-                  <span className="text-[10px] opacity-60 ml-1 font-bold italic">
+                  <span className="block text-[8px] opacity-60 font-medium leading-none mt-1">
                     (R$ {(transaction.amount / (transaction.splitWith.length + 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cada)
                   </span>
                 )}
