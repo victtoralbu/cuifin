@@ -116,7 +116,7 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
             </div>
           </div>
           
-          <div>
+          <div className="mt-auto">
             <div className="flex justify-between items-start gap-2">
               <p className={`font-bold text-base leading-tight flex-1 ${transaction.status === 'pago' ? 'text-zinc-500 line-through' : 'text-zinc-900 dark:text-zinc-100'} line-clamp-1`}>
                 {transaction.title}
