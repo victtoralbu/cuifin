@@ -7,6 +7,8 @@ import ComprasScreen from './screens/ComprasScreen';
 import MaisScreen from './screens/MaisScreen';
 import LoginScreen from './screens/LoginScreen';
 import { useAuth } from './context/AuthContext';
+import { dataService } from './lib/dataService';
+import { useEffect } from 'react';
 
 const Header = ({ user, onLogout }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -58,10 +60,10 @@ const Header = ({ user, onLogout }) => {
 
 const BottomNav = ({ activeTab, onTabChange }) => {
   const tabs = [
-    { id: 'planejar', icon: <LayoutList size={22} />, label: 'Plan' },
-    { id: 'compras', icon: <ShoppingBag size={22} />, label: 'Shop' },
-    { id: 'grupos', icon: <Users size={22} />, label: 'Groups' },
-    { id: 'mais', icon: <MoreHorizontal size={22} />, label: 'Menu' },
+    { id: 'planejar', icon: <LayoutList size={22} />, label: 'Planejar' },
+    { id: 'compras', icon: <ShoppingBag size={22} />, label: 'Compras' },
+    { id: 'grupos', icon: <Users size={22} />, label: 'Grupos' },
+    { id: 'mais', icon: <MoreHorizontal size={22} />, label: 'Mais' },
   ];
 
   return (
@@ -108,6 +110,30 @@ function App() {
     updateTransaction, 
     deleteTransaction 
   } = useTransactions();
+
+  // Handle Invitations
+  useEffect(() => {
+    if (user && !loading) {
+      const params = new URLSearchParams(window.location.search);
+      const inviteId = params.get('invite');
+      
+      if (inviteId && inviteId !== user.id) {
+        const processInvite = async () => {
+          try {
+            await dataService.addFriendByInvite(inviteId);
+            // Clear the URL without reloading
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+            setActiveTab('mais'); // Navigate to social screen to see new friend
+            alert('Novo amigo adicionado com sucesso! 🎉');
+          } catch (error) {
+            console.error('Erro ao processar convite:', error);
+          }
+        };
+        processInvite();
+      }
+    }
+  }, [user, loading]);
 
   if (loading) {
     return (

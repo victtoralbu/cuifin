@@ -37,6 +37,7 @@ export const useTransactions = () => {
       return newTransaction;
     } catch (error) {
       console.error('Error adding transaction:', error);
+      alert('Erro ao salvar transação: ' + error.message);
       throw error;
     }
   };
@@ -48,6 +49,7 @@ export const useTransactions = () => {
       setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
     } catch (error) {
       console.error('Error updating transaction:', error);
+      alert('Erro ao atualizar: ' + error.message);
       fetchTransactions(); // Rollback on error
       throw error;
     }
@@ -59,6 +61,7 @@ export const useTransactions = () => {
       setTransactions(prev => prev.filter(t => t.id !== id));
     } catch (error) {
       console.error('Error deleting transaction:', error);
+      alert('Erro ao excluir: ' + error.message);
       fetchTransactions(); // Rollback on error
       throw error;
     }

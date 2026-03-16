@@ -69,3 +69,66 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Create friends table for social connections
+CREATE TABLE IF NOT EXISTS public.friends (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  friend_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(user_id, friend_id)
+);
+
+-- Enable RLS on friends
+ALTER TABLE public.friends ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own friends" ON public.friends
+  FOR SELECT USING (auth.uid() = user_id OR auth.uid() = friend_id);
+
+CREATE POLICY "Users can add friends" ON public.friends
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to see profiles of their friends
+CREATE POLICY "Users can view profiles of their friends" ON public.profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.friends 
+      WHERE (user_id = auth.uid() AND friend_id = public.profiles.id)
+         OR (friend_id = auth.uid() AND user_id = public.profiles.id)
+    )
+  );
+
+-- Create groups table
+CREATE TABLE IF NOT EXISTS public.groups (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS on groups
+ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own groups" ON public.groups
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Create group_members table
+CREATE TABLE IF NOT EXISTS public.group_members (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  group_id UUID REFERENCES public.groups ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users ON DELETE CASCADE, -- Can be null for legacy/manual names
+  name TEXT, -- Fallback for manual names
+  paid DECIMAL(12,2) DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS on group_members
+ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage members of their groups" ON public.group_members
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.groups
+      WHERE id = group_id AND user_id = auth.uid()
+    )
+  );

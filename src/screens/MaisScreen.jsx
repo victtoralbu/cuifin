@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Users, History, ArrowLeft, Plus, Share2, Mail, Edit, Trash2 } from 'lucide-react';
+import { Users, History, ArrowLeft, Plus, Share2, Mail, Edit, Trash2, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SimpleEntryForm from '../components/SimpleEntryForm';
+import { useAuth } from '../context/AuthContext';
+import { dataService } from '../lib/dataService';
 
 const calculateSmartTransfers = (members) => {
   if (!members || members.length <= 1) return [];
@@ -30,31 +31,107 @@ const calculateSmartTransfers = (members) => {
   return transfers;
 };
 
+const InviteModal = ({ isOpen, onClose, user }) => {
+  const [copied, setCopied] = useState(false);
+  const inviteLink = `${window.location.origin}?invite=${user?.id}`;
+  const message = `Ei! Comecei a usar o CuiFin para organizar minhas contas e queria te convidar. Clica aqui pra gente dividir os gastos: ${inviteLink}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsApp = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[32px] p-6 shadow-2xl"
+          >
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-verde/10 text-verde rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Share2 size={32} />
+              </div>
+              <h3 className="text-xl font-black mb-2">Convidar Amigo</h3>
+              <p className="text-sm text-zinc-500 font-medium">Compartilhe o link para que seu amigo seja adicionado automaticamente à sua lista.</p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleWhatsApp}
+                className="w-full bg-[#25D366] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all shadow-lg shadow-green-500/20"
+              >
+                Enviar no WhatsApp
+              </button>
+              
+              <button
+                onClick={handleCopy}
+                className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all"
+              >
+                {copied ? <Check size={18} className="text-verde" /> : <Copy size={18} />}
+                {copied ? 'Mensagem Copiada!' : 'Copiar Link Convite'}
+              </button>
+            </div>
+
+            <button 
+              onClick={onClose}
+              className="w-full mt-6 py-2 text-zinc-400 font-bold text-xs uppercase tracking-tighter"
+            >
+              Fechar
+            </button>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 const MaisScreen = ({ forceView }) => {
   const [view, setView] = useState(forceView || 'menu');
-  const [groups, setGroups] = useState(() => {
-    const saved = localStorage.getItem('cuifin_groups');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'Apartamento', members: [
-        { name: 'Você', paid: 1500 },
-        { name: 'João', paid: 0 },
-        { name: 'Maria', paid: 0 }
-      ] }
-    ];
-  });
-
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [formConfig, setFormConfig] = useState({ title: '', onSave: () => {}, initialData: null });
+  const { user } = useAuth();
+  const [friends, setFriends] = useState([]);
 
-  useEffect(() => {
-    if (forceView) {
-      setView(forceView);
+  const fetchGroups = async () => {
+    try {
+      setLoading(true);
+      const data = await dataService.getGroups();
+      setGroups(data);
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [forceView]);
+  };
+
+  const fetchFriends = async () => {
+    try {
+      const data = await dataService.getFriends();
+      setFriends(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem('cuifin_groups', JSON.stringify(groups));
-  }, [groups]);
+    if (user) {
+      fetchGroups();
+      fetchFriends();
+    }
+  }, [user]);
 
   const openForm = (title, onSave, initialData = null) => {
     setFormConfig({ title, onSave, initialData });
@@ -66,23 +143,47 @@ const MaisScreen = ({ forceView }) => {
     setIsFormOpen(false);
   };
 
-  const addGroup = (name) => {
-    setGroups([...groups, { id: Date.now().toString(), name, members: [{ name: 'Você', paid: 0 }] }]);
+  const addGroup = async (name) => {
+    try {
+      await dataService.addGroup(name);
+      fetchGroups();
+    } catch (e) { console.error(e); }
   };
 
-  const updateGroup = (id, newName) => {
-    setGroups(groups.map(g => g.id === id ? { ...g, name: newName } : g));
+  const updateGroup = async (id, newName) => {
+    try {
+      await dataService.updateGroup(id, newName);
+      fetchGroups();
+    } catch (e) { console.error(e); }
   };
 
-  const deleteGroup = (id) => {
+  const deleteGroup = async (id) => {
     if (window.navigator.vibrate) window.navigator.vibrate([10, 30]);
-    setGroups(groups.filter(g => g.id !== id));
+    try {
+      await dataService.deleteGroup(id);
+      fetchGroups();
+    } catch (e) { console.error(e); }
   };
 
-  const addMember = (groupId, name) => {
-    setGroups(groups.map(g => 
-      g.id === groupId ? { ...g, members: [...g.members, { name, paid: 0 }] } : g
-    ));
+  const addMember = async (groupId, memberData) => {
+    try {
+      if (typeof memberData === 'string') {
+        await dataService.addGroupMember(groupId, { name: memberData });
+      } else {
+        await dataService.addGroupMember(groupId, { userId: memberData.id, name: memberData.name });
+      }
+      fetchGroups();
+    } catch (e) { 
+      console.error(e);
+      alert('Erro ao adicionar membro: ' + e.message);
+    }
+  };
+
+  const removeMember = async (memberId) => {
+    try {
+      await dataService.removeGroupMember(memberId);
+      fetchGroups();
+    } catch (e) { console.error(e); }
   };
 
   const menuItems = [
@@ -103,10 +204,11 @@ const MaisScreen = ({ forceView }) => {
           </button>
         </div>
 
-        <div className="space-y-4">
+        {loading && <div className="text-center py-10 opacity-50">Carregando grupos...</div>}
+
+        <div className="space-y-4 pb-20">
           {groups.map(group => (
             <div key={group.id} className="relative">
-              {/* Background Icons for Swipe */}
               <div className="absolute inset-0 flex items-center justify-between px-6 rounded-2xl opacity-40">
                 <Edit size={24} className="text-zinc-400" />
                 <Trash2 size={24} className="text-vermelho" />
@@ -117,41 +219,68 @@ const MaisScreen = ({ forceView }) => {
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.6}
                 onDragEnd={(e, info) => {
-                  if (info.offset.x < -80) deleteGroup(group.id);
-                  else if (info.offset.x > 80) openForm('Editar Grupo', (name) => updateGroup(group.id, name), group.name);
+                  if (info.offset.x < -100) deleteGroup(group.id);
+                  else if (info.offset.x > 100) openForm('Editar Grupo', (name) => updateGroup(group.id, name), group.name);
                 }}
                 whileTap={{ scale: 0.98 }}
-                className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm relative z-10"
+                className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 shadow-sm relative z-10"
               >
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-lg">{group.name}</h3>
-                  <button 
-                    onClick={() => openForm('Novo Membro', (name) => addMember(group.id, name))}
-                    className="text-xs font-bold uppercase text-zinc-400 p-2"
-                  >
-                    + Membro
-                  </button>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-black text-xl tracking-tight">{group.name}</h3>
                 </div>
                 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-end border-b border-zinc-50 dark:border-zinc-800 pb-2">
-                    <p className="text-[10px] font-bold uppercase text-zinc-400">Transferências Inteligentes</p>
+                <div className="space-y-6">
+                  <div className="flex border-b border-zinc-50 dark:border-zinc-800 pb-2">
+                    <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Membros do Grupo</p>
                   </div>
-                  {calculateSmartTransfers(group.members).length > 0 ? (
-                    calculateSmartTransfers(group.members).map((t, idx) => (
-                      <div key={idx} className="bg-zinc-50 dark:bg-zinc-800 p-3 rounded-lg flex justify-between items-center">
-                        <span className="text-sm font-medium">{t.from} ➔ {t.to}</span>
-                        <span className="font-black text-verde">R$ {t.amount.toFixed(2)}</span>
+                  <div className="flex flex-wrap gap-2.5">
+                    {group.members?.map(m => (
+                      <div key={m.id} className="bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2 rounded-2xl text-xs font-black flex items-center gap-2 border border-zinc-100 dark:border-zinc-700/50">
+                        <span className="opacity-80 uppercase tracking-tighter">{m.name || 'Usuário'}</span>
+                        {m.user_id !== user?.id && (
+                          <button onClick={() => removeMember(m.id)} className="text-zinc-400 hover:text-vermelho active:scale-90 transition-all font-black">
+                            <Plus size={14} className="rotate-45" />
+                          </button>
+                        )}
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-zinc-400 italic">Saldos zerados.</p>
-                  )}
+                    ))}
+                    <button 
+                      onClick={() => {
+                        const notInGroup = friends.filter(f => !group.members?.some(m => m.user_id === f.id));
+                        openForm('Novo Membro', (data) => addMember(group.id, data), null, notInGroup);
+                      }}
+                      className="bg-verde text-white h-9 px-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verde/20 active:scale-95 transition-all"
+                    >
+                      + Membro
+                    </button>
+                  </div>
+
+                  <div className="pt-6 border-t border-zinc-50 dark:border-zinc-800">
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Ajustes Sugeridos</p>
+                      <Share2 size={14} className="text-zinc-300" />
+                    </div>
+                    {calculateSmartTransfers(group.members || []).length > 0 ? (
+                      <div className="space-y-2">
+                        {calculateSmartTransfers(group.members).map((t, idx) => (
+                          <div key={idx} className="flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-800/50 p-3 rounded-2xl border border-zinc-100/50 dark:border-zinc-700/30">
+                            <span className="text-xs font-bold opacity-70 italic">{t.from} ➔ {t.to}</span>
+                            <span className="font-black text-verde text-sm">R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest opacity-50 bg-zinc-50/50 dark:bg-zinc-800/50 p-4 rounded-2xl text-center italic">✨ Saldos Equilibrados</p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800 grid grid-cols-2 gap-2">
-                  <div className="text-[10px] text-zinc-400 font-bold uppercase">Membros: {group.members.length}</div>
-                  <div className="text-[10px] text-zinc-400 font-bold uppercase text-right">Total: R$ {group.members.reduce((s, m) => s + m.paid, 0).toFixed(2)}</div>
+                <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                  <div className="text-[9px] text-zinc-400 font-black uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800 px-2 py-1 rounded-lg">Membros: {group.members?.length || 0}</div>
+                  <div className="text-right">
+                    <p className="text-[8px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">Fundo do Grupo</p>
+                    <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">R$ {group.members?.reduce((s, m) => s + parseFloat(m.paid || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -164,6 +293,7 @@ const MaisScreen = ({ forceView }) => {
           title={formConfig.title}
           onSave={handleSave}
           initialData={formConfig.initialData}
+          friends={formConfig.friends || []}
         />
       </div>
     );
@@ -208,7 +338,7 @@ const MaisScreen = ({ forceView }) => {
             whileTap={{ scale: 0.95 }}
             onClick={() => {
               if (item.id === 'invite') {
-                alert('Link de convite copiado!');
+                setIsInviteOpen(true);
               } else {
                 setView(item.id);
               }
@@ -229,6 +359,11 @@ const MaisScreen = ({ forceView }) => {
         title={formConfig.title}
         onSave={handleSave}
         initialData={formConfig.initialData}
+      />
+      <InviteModal 
+        isOpen={isInviteOpen} 
+        onClose={() => setIsInviteOpen(false)} 
+        user={user} 
       />
     </div>
   );

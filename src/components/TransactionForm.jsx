@@ -1,18 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Calendar, Users, Smile, User, Plus } from 'lucide-react';
-
-const MOCK_USERS = [
-  { id: '2', name: 'João', avatar: 'https://ui-avatars.com/api/?name=Joao&background=F39C12&color=fff' },
-  { id: '3', name: 'Maria', avatar: 'https://ui-avatars.com/api/?name=Maria&background=E74C3C&color=fff' },
-  { id: '4', name: 'Lucas', avatar: 'https://ui-avatars.com/api/?name=Lucas&background=3498DB&color=fff' },
-];
+import { dataService } from '../lib/dataService';
 
 const PRESET_EMOJIS = ['💸', '🏠', '🍔', '⚡', '🌐', '🚗', '🛒', '💊', '🍿', '🎮', '🍎', '🍺'];
 
 const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
   const [isDivided, setIsDivided] = useState(false);
   const [showCustomEmoji, setShowCustomEmoji] = useState(false);
+  const [friends, setFriends] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
@@ -21,6 +14,18 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
     emoji: '💸',
     splitWith: [] // Array of user IDs
   });
+
+  useEffect(() => {
+    const fetchFriends = async () => {
+      try {
+        const data = await dataService.getFriends();
+        setFriends(data);
+      } catch (e) {
+        console.error('Error fetching friends:', e);
+      }
+    };
+    if (isOpen) fetchFriends();
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialData) {
@@ -227,20 +232,26 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                   className="space-y-4 overflow-hidden pt-4 border-t border-zinc-100 dark:border-zinc-900"
                 >
                   <label className="text-[10px] uppercase font-black text-orange-500 tracking-wider block text-center">👥 Dividir com amigos</label>
-                  <div className="flex justify-center gap-6">
-                    {MOCK_USERS.map(u => (
+                  <div className="flex justify-center gap-6 overflow-x-auto pb-2 no-scrollbar">
+                    {friends.length > 0 ? friends.map(u => (
                       <button
                         key={u.id}
                         type="button"
                         onClick={() => toggleUser(u.id)}
-                        className={`flex flex-col items-center gap-2 transition-all`}
+                        className={`flex flex-col items-center gap-2 transition-all flex-shrink-0`}
                       >
                         <div className={`w-14 h-14 rounded-full border-2 transition-all p-0.5 ${formData.splitWith.includes(u.id) ? 'border-orange-500 scale-110 shadow-lg shadow-orange-500/20' : 'border-transparent grayscale opacity-50'}`}>
-                          <img src={u.avatar} className="w-full h-full rounded-full object-cover" alt={u.name} />
+                          <img 
+                            src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`} 
+                            className="w-full h-full rounded-full object-cover" 
+                            alt={u.name} 
+                          />
                         </div>
                         <span className={`text-[10px] font-black uppercase tracking-tighter ${formData.splitWith.includes(u.id) ? 'text-orange-500' : 'text-zinc-500'}`}>{u.name}</span>
                       </button>
-                    ))}
+                    )) : (
+                      <p className="text-[10px] text-zinc-400 italic py-4">Nenhum amigo encontrado. Convide alguém!</p>
+                    )}
                   </div>
                 </motion.div>
               )}
