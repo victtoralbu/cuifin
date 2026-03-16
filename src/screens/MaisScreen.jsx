@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, History, ArrowLeft, Plus, Share2, Mail } from 'lucide-react';
+import { Users, History, ArrowLeft, Plus, Share2, Mail, Edit, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SimpleEntryForm from '../components/SimpleEntryForm';
 
