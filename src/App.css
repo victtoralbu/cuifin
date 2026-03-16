@@ -1,0 +1,17 @@
+/* Cleaned App.css for CuiFin */
+#root {
+  width: 100%;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* Scrollbar hiding for a cleaner mobile look */
+::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}

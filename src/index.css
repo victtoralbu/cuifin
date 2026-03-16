@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-verde: #2ECC71;
+  --color-laranja: #F39C12;
+  --color-vermelho: #E74C3C;
+  
+  --font-sans: "Instrument Sans", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  background-color: canvas;
+  color: canvastext;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain; /* Prevent pull-to-refresh on mobile if desired */
+}
+
+/* Minimalist Card Base */
+.scannable-card {
+  @apply bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border-l-4 transition-all active:scale-95;
+}
+
+.status-gray { border-left-color: #94A3B8; }
+.status-orange { border-left-color: var(--color-laranja); }
+.status-vermelho { border-left-color: var(--color-vermelho); }
+.status-verde { border-left-color: var(--color-verde); }
+
+/* Bottom Nav Fix */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 px-4 pt-2 flex justify-between items-center z-50;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
