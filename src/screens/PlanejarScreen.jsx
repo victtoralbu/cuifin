@@ -170,10 +170,19 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
           ))
         ) : (
           <div className="text-center py-20">
-            <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Plus className="text-zinc-300" size={32} />
-            </div>
+            <button 
+              onClick={() => setIsFormOpen(true)}
+              className="w-16 h-16 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 active:scale-95 transition-all shadow-xl shadow-verde/10 ring-4 ring-zinc-50 dark:ring-zinc-900"
+            >
+              <Plus size={32} />
+            </button>
             <p className="text-zinc-400 font-bold">Nenhum item para este período</p>
+            <button 
+              onClick={() => setIsFormOpen(true)}
+              className="text-[10px] font-black uppercase text-verde mt-2 tracking-widest"
+            >
+              Adicionar Novo
+            </button>
           </div>
         )}
       </div>
