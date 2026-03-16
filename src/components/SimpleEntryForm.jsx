@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check } from 'lucide-react';
 
-const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicionar", friends = [] }) => {
+const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicionar", placeholder = "Nome do Membro...", friends = [] }) => {
   const [name, setName] = useState('');
 
   useEffect(() => {
@@ -34,15 +34,15 @@ const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicio
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-0 z-50 bg-white dark:bg-zinc-950 flex flex-col"
+          className="fixed inset-0 z-[60] bg-white dark:bg-zinc-950 flex flex-col"
         >
           <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center mt-safe">
-            <button onClick={onClose} className="p-2 text-zinc-500"><X size={24} /></button>
-            <h2 className="text-lg font-black uppercase tracking-widest">{title}</h2>
-            <button onClick={handleSubmit} className="p-2 text-verde"><Check size={24} /></button>
+            <button onClick={onClose} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-2xl transition-colors"><X size={24} /></button>
+            <h2 className="text-sm font-black uppercase tracking-widest opacity-40">{title}</h2>
+            <button onClick={handleSubmit} className="p-2 text-verde hover:bg-verde/10 rounded-2xl transition-colors"><Check size={24} /></button>
           </div>
 
-          <div className="flex-1 p-6 flex flex-col justify-center gap-12 overflow-y-auto">
+          <div className="flex-1 p-6 flex flex-col justify-center gap-12 overflow-y-auto pb-32">
             {friends.length > 0 && (
               <div className="space-y-4">
                 <label className="text-[10px] uppercase font-black text-zinc-400 tracking-widest block text-center italic">Amigos Sugeridos</label>
@@ -53,14 +53,14 @@ const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicio
                       onClick={() => selectFriend(f)}
                       className="flex flex-col items-center gap-2 flex-shrink-0 active:scale-90 transition-transform"
                     >
-                      <div className="w-16 h-16 rounded-3xl overflow-hidden border-2 border-zinc-100 dark:border-zinc-800 p-0.5">
+                      <div className="w-16 h-16 rounded-3xl overflow-hidden border-2 border-zinc-100 dark:border-zinc-800 p-0.5 shadow-sm">
                         <img 
                           src={f.avatar || `https://ui-avatars.com/api/?name=${f.name}&background=random`} 
                           className="w-full h-full object-cover rounded-[22px]" 
                           alt={f.name} 
                         />
                       </div>
-                      <span className="text-[10px] font-bold text-zinc-500 uppercase">{f.name.split(' ')[0]}</span>
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">{f.name.split(' ')[0]}</span>
                     </button>
                   ))}
                 </div>
@@ -78,17 +78,10 @@ const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicio
                   autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Nome do Membro..."
-                  className="w-full bg-transparent border-none text-center p-4 font-black text-3xl focus:outline-none placeholder:text-zinc-100 dark:placeholder:text-zinc-900"
+                  placeholder={placeholder}
+                  className="w-full bg-transparent border-none text-center p-4 font-black text-3xl focus:outline-none placeholder:text-zinc-100 dark:placeholder:text-zinc-900 transition-all tracking-tighter"
                 />
               </div>
-
-              <button
-                type="submit"
-                className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 py-5 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-all uppercase tracking-widest"
-              >
-                Salvar Manualmente
-              </button>
             </form>
           </div>
         </motion.div>

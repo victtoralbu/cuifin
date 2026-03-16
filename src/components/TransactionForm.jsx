@@ -83,14 +83,14 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
           className="fixed inset-0 z-50 bg-white dark:bg-zinc-950 flex flex-col"
         >
           <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center mt-safe">
-            <button onClick={onClose} className="p-2 text-zinc-500"><X size={24} /></button>
-            <h2 className="text-lg font-black uppercase tracking-widest">
+            <button onClick={onClose} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-2xl transition-colors"><X size={24} /></button>
+            <h2 className="text-sm font-black uppercase tracking-widest opacity-40">
               {initialData ? 'Editar' : 'Novo Item'}
             </h2>
-            <button onClick={handleSubmit} className="p-2 text-verde"><Check size={24} /></button>
+            <button onClick={handleSubmit} className="p-2 text-verde hover:bg-verde/10 rounded-2xl transition-colors"><Check size={24} /></button>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8">
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
             {/* Control Group: Split and Type */}
             <div className="space-y-3">
               {/* Split Mode Toggle */}
@@ -143,7 +143,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   placeholder="0,00"
-                  className={`bg-transparent text-5xl font-black focus:outline-none w-full max-w-[200px] text-center ${formData.type === 'receita' ? 'text-verde' : 'text-zinc-900 dark:text-white'}`}
+                  className={`bg-transparent text-5xl font-black focus:outline-none w-full max-w-[200px] text-center tracking-tighter ${formData.type === 'receita' ? 'text-verde' : 'text-zinc-900 dark:text-white'}`}
                 />
               </div>
             </div>
@@ -157,7 +157,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="Aluguel, Salário, Pizza..."
-                className="w-full bg-zinc-50 dark:bg-zinc-900 border-none p-5 rounded-3xl font-bold text-lg text-center focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-800"
+                className="w-full bg-transparent border-none p-5 rounded-3xl font-black text-2xl text-center focus:ring-0 tracking-tight placeholder:opacity-20"
               />
             </div>
 
@@ -213,15 +213,17 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
 
             <div className="grid grid-cols-1 gap-4">
               {/* Due Date */}
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-black text-zinc-400 tracking-wider block text-center italic">📅 Data de Vencimento / Recebimento</label>
-                <input
-                  type="date"
-                  required
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  className="w-full bg-zinc-50 dark:bg-zinc-900 border-none p-4 rounded-3xl font-bold text-sm text-center"
-                />
+              <div className="space-y-4">
+                <label className="text-[10px] uppercase font-black text-zinc-400 tracking-wider block text-center italic">📅 DATA DE VENCIMENTO / RECEBIMENTO</label>
+                <div className="flex justify-center">
+                   <input
+                    type="date"
+                    required
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-10 rounded-[2rem] font-black text-xl text-center focus:ring-2 focus:ring-verde/20 transition-all"
+                  />
+                </div>
               </div>
             </div>
 
@@ -259,13 +261,6 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                 </motion.div>
               )}
             </AnimatePresence>
-            
-            <button
-              type="submit"
-              className="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 py-5 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-all mt-8 uppercase tracking-widest"
-            >
-              {initialData ? 'Salvar Edição' : 'Confirmar Registro'}
-            </button>
           </form>
         </motion.div>
       )}

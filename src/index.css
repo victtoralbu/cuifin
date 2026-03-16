@@ -34,7 +34,7 @@ body {
 
 /* Minimalist Card Base */
 .scannable-card {
-  @apply bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border-l-4 transition-all active:scale-95;
+  @apply bg-white dark:bg-zinc-900 rounded-xl shadow-sm border-l-4 transition-all active:scale-95;
 }
 
 .status-gray { border-left-color: #94A3B8; }

@@ -96,13 +96,12 @@ const InviteModal = ({ isOpen, onClose, user }) => {
   );
 };
 
-const MaisScreen = ({ forceView }) => {
-  const [view, setView] = useState(forceView || 'menu');
+const MaisScreen = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [formConfig, setFormConfig] = useState({ title: '', onSave: () => {}, initialData: null });
+  const [formConfig, setFormConfig] = useState({ title: '', onSave: () => {}, initialData: null, friends: [] });
   const { user } = useAuth();
   const [friends, setFriends] = useState([]);
 
@@ -134,8 +133,8 @@ const MaisScreen = ({ forceView }) => {
     }
   }, [user]);
 
-  const openForm = (title, onSave, initialData = null) => {
-    setFormConfig({ title, onSave, initialData });
+  const openForm = (title, onSave, initialData = null, availableFriends = [], placeholder = "Nome do Membro...") => {
+    setFormConfig({ title, onSave, initialData, friends: availableFriends, placeholder });
     setIsFormOpen(true);
   };
 
@@ -187,179 +186,161 @@ const MaisScreen = ({ forceView }) => {
     } catch (e) { console.error(e); }
   };
 
-  const menuItems = [
-    { id: 'transacoes', label: 'Todas Transações', icon: <History />, color: 'text-zinc-500' },
-    { id: 'invite', label: 'Convidar Amigo', icon: <Mail />, color: 'text-verde' },
-  ];
-
-  if (view === 'grupos') {
-    return (
-      <div className="p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Meus Grupos</h2>
+  return (
+    <div className="px-4 pb-4 pt-0">
+      {/* HEADER SECTION - Improved to cover gap */}
+      <div className="sticky top-0 z-30 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-xl -mx-4 px-4 pt-24 pb-2 mb-4 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-end transition-all">
+        <div className="pb-1">
+          <h2 className="text-3xl font-black italic tracking-tighter transition-all">Grupos</h2>
+          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">Social & Divisões</p>
+        </div>
+        <div className="flex gap-3 pb-1">
           <button 
-            onClick={() => openForm('Novo Grupo', addGroup)}
-            className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-2 rounded-full active:scale-90 transition-transform"
+            onClick={() => setIsInviteOpen(true)}
+            className="bg-zinc-100 dark:bg-zinc-900 text-verde p-3 rounded-2xl active:scale-90 transition-all shadow-sm border border-zinc-200 dark:border-zinc-800"
+          >
+            <Mail size={22} />
+          </button>
+          <button 
+            onClick={() => openForm('Novo Grupo', addGroup, null, [], 'Nome do Grupo...')}
+            className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-3 rounded-2xl active:scale-90 transition-all shadow-xl shadow-zinc-500/10"
           >
             <Plus size={24} />
           </button>
         </div>
+      </div>
 
-        {loading && <div className="text-center py-10 opacity-50">Carregando grupos...</div>}
-
-        <div className="space-y-4 pb-20">
-          {groups.map(group => (
-            <div key={group.id} className="relative">
-              <div className="absolute inset-0 flex items-center justify-between px-6 rounded-2xl opacity-40">
-                <Edit size={24} className="text-zinc-400" />
-                <Trash2 size={24} className="text-vermelho" />
-              </div>
-
-              <motion.div
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.6}
-                onDragEnd={(e, info) => {
-                  if (info.offset.x < -100) deleteGroup(group.id);
-                  else if (info.offset.x > 100) openForm('Editar Grupo', (name) => updateGroup(group.id, name), group.name);
-                }}
-                whileTap={{ scale: 0.98 }}
-                className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 shadow-sm relative z-10"
-              >
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-black text-xl tracking-tight">{group.name}</h3>
+      {/* FRIENDS SECTION */}
+      <section className="mb-10">
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-xs font-black uppercase text-zinc-400 tracking-widest">Meus Amigos</p>
+          <span className="text-[10px] font-bold text-zinc-300 dark:text-zinc-600 uppercase">{friends.length} cadastrados</span>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+          {friends.length > 0 ? (
+            friends.map(friend => (
+              <div key={friend.id} className="flex flex-col items-center gap-2 min-w-[70px]">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-50 dark:border-zinc-800 p-0.5 overflow-hidden shadow-sm">
+                  <img src={friend.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.name}`} alt="" className="w-full h-full object-cover rounded-xl" />
                 </div>
-                
-                <div className="space-y-6">
-                  <div className="flex border-b border-zinc-50 dark:border-zinc-800 pb-2">
-                    <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Membros do Grupo</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2.5">
-                    {group.members?.map(m => (
-                      <div key={m.id} className="bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2 rounded-2xl text-xs font-black flex items-center gap-2 border border-zinc-100 dark:border-zinc-700/50">
-                        <span className="opacity-80 uppercase tracking-tighter">{m.name || 'Usuário'}</span>
-                        {m.user_id !== user?.id && (
-                          <button onClick={() => removeMember(m.id)} className="text-zinc-400 hover:text-vermelho active:scale-90 transition-all font-black">
-                            <Plus size={14} className="rotate-45" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button 
-                      onClick={() => {
-                        const notInGroup = friends.filter(f => !group.members?.some(m => m.user_id === f.id));
-                        openForm('Novo Membro', (data) => addMember(group.id, data), null, notInGroup);
-                      }}
-                      className="bg-verde text-white h-9 px-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verde/20 active:scale-95 transition-all"
-                    >
-                      + Membro
-                    </button>
-                  </div>
+                <span className="text-[10px] font-black text-center truncate w-full opacity-60 uppercase tracking-tighter">{friend.name}</span>
+              </div>
+            ))
+          ) : (
+            <div className="w-full py-6 text-center bg-zinc-50/50 dark:bg-zinc-900/50 rounded-[2rem] border border-dashed border-zinc-200 dark:border-zinc-800">
+               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-loose">
+                 Nenhum amigo ainda.<br/>Convide alguém para começar!
+               </p>
+            </div>
+          )}
+        </div>
+      </section>
 
-                  <div className="pt-6 border-t border-zinc-50 dark:border-zinc-800">
-                    <div className="flex justify-between items-center mb-4">
-                      <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Ajustes Sugeridos</p>
-                      <Share2 size={14} className="text-zinc-300" />
+      {/* GROUPS SECTION */}
+      <div className="space-y-6 pb-20">
+        <div className="flex border-b border-zinc-50 dark:border-zinc-800 pb-2">
+          <p className="text-xs font-black uppercase text-zinc-400 tracking-widest">Meus Grupos</p>
+        </div>
+
+        {loading && <div className="text-center py-10 opacity-50">Sincronizando grupos...</div>}
+
+        <div className="space-y-4">
+          {groups.length > 0 ? (
+            groups.map(group => (
+              <div key={group.id} className="relative">
+                <div className="absolute inset-0 flex items-center justify-between px-6 rounded-2xl opacity-40">
+                  <Edit size={24} className="text-zinc-400" />
+                  <Trash2 size={24} className="text-vermelho" />
+                </div>
+
+                <motion.div
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.6}
+                  onDragEnd={(e, info) => {
+                    if (info.offset.x < -100) deleteGroup(group.id);
+                    else if (info.offset.x > 100) openForm('Editar Grupo', (name) => updateGroup(group.id, name), group.name);
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                  className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 shadow-sm relative z-10"
+                >
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-black text-xl tracking-tight">{group.name}</h3>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div className="flex border-b border-zinc-50 dark:border-zinc-800 pb-1">
+                      <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Integrantes</p>
                     </div>
-                    {calculateSmartTransfers(group.members || []).length > 0 ? (
-                      <div className="space-y-2">
-                        {calculateSmartTransfers(group.members).map((t, idx) => (
-                          <div key={idx} className="flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-800/50 p-3 rounded-2xl border border-zinc-100/50 dark:border-zinc-700/30">
-                            <span className="text-xs font-bold opacity-70 italic">{t.from} ➔ {t.to}</span>
-                            <span className="font-black text-verde text-sm">R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                          </div>
-                        ))}
+                    <div className="flex flex-wrap gap-2.5">
+                      {group.members?.map(m => (
+                        <div key={m.id} className="bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 border border-zinc-100 dark:border-zinc-700/50 shadow-sm">
+                          <span className="opacity-80 uppercase tracking-tighter">{m.name || 'Usuário'}</span>
+                          {m.user_id !== user?.id && (
+                            <button onClick={() => removeMember(m.id)} className="text-zinc-400 hover:text-vermelho active:scale-90 transition-all font-black">
+                              <Plus size={14} className="rotate-45" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button 
+                        onClick={() => {
+                          const notInGroup = friends.filter(f => !group.members?.some(m => m.user_id === f.id));
+                          openForm('Novo Membro', (data) => addMember(group.id, data), null, notInGroup);
+                        }}
+                        className="bg-verde text-white h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verde/20 active:scale-95 transition-all"
+                      >
+                        + Membro
+                      </button>
+                    </div>
+
+                    <div className="pt-6 border-t border-zinc-50 dark:border-zinc-800">
+                      <div className="flex justify-between items-center mb-4">
+                        <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest text-verde/60">Saldos Sugeridos</p>
+                        <Share2 size={14} className="text-zinc-300" />
                       </div>
-                    ) : (
-                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest opacity-50 bg-zinc-50/50 dark:bg-zinc-800/50 p-4 rounded-2xl text-center italic">✨ Saldos Equilibrados</p>
-                    )}
+                      {calculateSmartTransfers(group.members || []).length > 0 ? (
+                        <div className="space-y-2">
+                          {calculateSmartTransfers(group.members).map((t, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-800/50 p-3 rounded-2xl border border-zinc-100/50 dark:border-zinc-700/30">
+                              <span className="text-xs font-bold opacity-70 italic">{t.from} ➔ {t.to}</span>
+                              <span className="font-black text-verde text-sm">R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest opacity-40 bg-zinc-50/50 dark:bg-zinc-800/50 p-4 rounded-2xl text-center italic">✨ Contas Equilibradas</p>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-                  <div className="text-[9px] text-zinc-400 font-black uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800 px-2 py-1 rounded-lg">Membros: {group.members?.length || 0}</div>
-                  <div className="text-right">
-                    <p className="text-[8px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">Fundo do Grupo</p>
-                    <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">R$ {group.members?.reduce((s, m) => s + parseFloat(m.paid || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                    <div className="text-[9px] text-zinc-400 font-black uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800 px-2 py-1 rounded-lg">Membros: {group.members?.length || 0}</div>
+                    <div className="text-right">
+                      <p className="text-[8px] text-zinc-400 font-black uppercase tracking-widest mb-0.5 opacity-50">Despesas Totais</p>
+                      <p className="text-sm font-black text-zinc-900 dark:text-zinc-100">R$ {group.members?.reduce((s, m) => s + parseFloat(m.paid || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            </div>
-          ))}
-        </div>
-        
-        <SimpleEntryForm 
-          isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
-          title={formConfig.title}
-          onSave={handleSave}
-          initialData={formConfig.initialData}
-          friends={formConfig.friends || []}
-        />
-      </div>
-    );
-  }
-
-  if (view === 'transacoes') {
-    const allTransactions = [
-      { title: 'Supermercado', amount: 340.50, date: '2026-03-15', type: 'pago' },
-      { title: 'Combustível', amount: 200.00, date: '2026-03-14', type: 'pago' },
-      { title: 'Restaurante', amount: 85.00, date: '2026-03-12', type: 'pago' },
-    ];
-
-    return (
-      <div className="p-4">
-        <button onClick={() => setView('menu')} className="mb-6 flex items-center gap-2 text-zinc-500">
-          <ArrowLeft size={20} /> Voltar
-        </button>
-        <h2 className="text-2xl font-bold mb-6">Todas Transações</h2>
-        <div className="space-y-3">
-          {allTransactions.map((t, idx) => (
-            <div key={idx} className="bg-white dark:bg-zinc-900 p-4 rounded-xl flex justify-between items-center border border-zinc-100 dark:border-zinc-800">
-              <div>
-                <p className="font-bold">{t.title}</p>
-                <p className="text-xs text-zinc-500">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+                </motion.div>
               </div>
-              <p className="font-black text-zinc-900 dark:text-zinc-100">R$ {t.amount.toFixed(2)}</p>
+            ))
+          ) : (
+            <div className="py-20 text-center opacity-30 select-none">
+              <Users size={48} className="mx-auto mb-4" />
+              <p className="text-xs font-black uppercase tracking-widest">Nenhum grupo ainda</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-8">Mais</h2>
       
-      <div className="grid grid-cols-2 gap-4">
-        {menuItems.map(item => (
-          <motion.button
-            key={item.id}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              if (item.id === 'invite') {
-                setIsInviteOpen(true);
-              } else {
-                setView(item.id);
-              }
-            }}
-            className="flex flex-col items-center justify-center gap-3 bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-zinc-100 dark:border-zinc-800"
-          >
-            <div className={`p-3 rounded-full bg-zinc-50 dark:bg-zinc-800 ${item.color}`}>
-              {item.icon}
-            </div>
-            <span className="font-bold text-sm text-center line-clamp-1">{item.label}</span>
-          </motion.button>
-        ))}
-      </div>
-
       <SimpleEntryForm 
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         title={formConfig.title}
         onSave={handleSave}
         initialData={formConfig.initialData}
+        friends={formConfig.friends || []}
+        placeholder={formConfig.placeholder}
       />
       <InviteModal 
         isOpen={isInviteOpen} 

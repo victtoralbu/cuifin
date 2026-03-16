@@ -10,9 +10,11 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Enable RLS on profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 CREATE POLICY "Users can view their own profile" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
@@ -34,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 -- Enable RLS on transactions
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage their own transactions" ON public.transactions;
 CREATE POLICY "Users can manage their own transactions" ON public.transactions
   FOR ALL USING (auth.uid() = user_id);
 
@@ -52,6 +55,7 @@ CREATE TABLE IF NOT EXISTS public.shopping_items (
 -- Enable RLS on shopping_items
 ALTER TABLE public.shopping_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage their own shopping items" ON public.shopping_items;
 CREATE POLICY "Users can manage their own shopping items" ON public.shopping_items
   FOR ALL USING (auth.uid() = user_id);
 
@@ -66,6 +70,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger on auth.users signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -82,13 +87,16 @@ CREATE TABLE IF NOT EXISTS public.friends (
 -- Enable RLS on friends
 ALTER TABLE public.friends ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own friends" ON public.friends;
 CREATE POLICY "Users can view their own friends" ON public.friends
   FOR SELECT USING (auth.uid() = user_id OR auth.uid() = friend_id);
 
+DROP POLICY IF EXISTS "Users can add friends" ON public.friends;
 CREATE POLICY "Users can add friends" ON public.friends
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Allow users to see profiles of their friends
+DROP POLICY IF EXISTS "Users can view profiles of their friends" ON public.profiles;
 CREATE POLICY "Users can view profiles of their friends" ON public.profiles
   FOR SELECT USING (
     EXISTS (
@@ -109,6 +117,7 @@ CREATE TABLE IF NOT EXISTS public.groups (
 -- Enable RLS on groups
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage their own groups" ON public.groups;
 CREATE POLICY "Users can manage their own groups" ON public.groups
   FOR ALL USING (auth.uid() = user_id);
 
@@ -125,6 +134,7 @@ CREATE TABLE IF NOT EXISTS public.group_members (
 -- Enable RLS on group_members
 ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage members of their groups" ON public.group_members;
 CREATE POLICY "Users can manage members of their groups" ON public.group_members
   FOR ALL USING (
     EXISTS (

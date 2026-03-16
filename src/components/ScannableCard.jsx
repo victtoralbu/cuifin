@@ -58,7 +58,7 @@ const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
           if (window.navigator.vibrate) window.navigator.vibrate(100);
           setShowMenu(true);
         }}
-        className={`scannable-card relative z-10 ${transaction.status === 'pago' ? 'bg-zinc-950 dark:bg-black border-zinc-900 opacity-60' : getStatusColor(transaction.dueDate)} transition-all duration-300 overflow-hidden h-full`}
+        className={`scannable-card relative z-10 ${transaction.status === 'pago' ? 'bg-zinc-950 dark:bg-black border-zinc-900' : getStatusColor(transaction.dueDate)} transition-all duration-300 overflow-hidden h-full`}
       >
         <AnimatePresence>
           {showMenu && (
@@ -87,7 +87,7 @@ const ScannableCard = ({ transaction, onUpdate, onDelete, onEdit }) => {
         </AnimatePresence>
 
         <div 
-          className="flex flex-col gap-2 cursor-pointer h-full p-4"
+          className={`flex flex-col gap-1 cursor-pointer h-full p-3 ${transaction.status === 'pago' ? 'opacity-40' : ''}`}
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex justify-between items-start">

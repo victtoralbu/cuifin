@@ -121,13 +121,15 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   }
 
   return (
-    <div className="p-4 relative min-h-[calc(100vh-160px)]">
-      <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-2">
+    <div className="px-4 pb-4 pt-0 relative min-h-[calc(100vh-160px)]">
+      {/* Sticky Header */}
+      {/* Sticky Header - Improved to cover gap */}
+      <div className="sticky top-0 z-30 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-xl -mx-4 px-4 pt-24 pb-2 mb-4 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-end transition-all">
+        <div className="flex items-center gap-2 pb-1">
           <h2 className="text-2xl font-black tracking-tight">{selectedMonth ? monthsData[selectedMonth]?.name : 'Planejar'}</h2>
           {selectedMonth && <button onClick={() => setSelectedMonth(null)} className="text-[10px] font-black uppercase text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-1 rounded-lg">Ver tudo</button>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 pb-1">
           <button
             onClick={() => setViewMode('calendar')}
             className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 p-2.5 rounded-full active:scale-95 transition-all"

@@ -63,7 +63,6 @@ const BottomNav = ({ activeTab, onTabChange }) => {
     { id: 'planejar', icon: <LayoutList size={22} />, label: 'Planejar' },
     { id: 'compras', icon: <ShoppingBag size={22} />, label: 'Compras' },
     { id: 'grupos', icon: <Users size={22} />, label: 'Grupos' },
-    { id: 'mais', icon: <MoreHorizontal size={22} />, label: 'Mais' },
   ];
 
   return (
@@ -76,7 +75,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`flex flex-col items-center justify-center py-2 px-5 rounded-2xl relative transition-all duration-500 ${
+            className={`flex flex-col items-center justify-center py-2.5 px-6 rounded-2xl relative transition-all duration-500 ${
               activeTab === tab.id ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 opacity-60 hover:opacity-100'
             }`}
           >
@@ -89,7 +88,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
             {activeTab === tab.id && (
               <motion.div
                 layoutId="activeTabIndicator"
-                className="absolute inset-x-1 inset-y-1 bg-white/80 dark:bg-white/10 rounded-[22px] shadow-sm -z-0"
+                className="absolute inset-x-0 inset-y-0 bg-white/80 dark:bg-white/10 rounded-[24px] shadow-sm -z-0 border border-white/20 dark:border-white/5"
                 transition={{ type: 'spring', bounce: 0.3, duration: 0.6 }}
               />
             )}
@@ -124,7 +123,7 @@ function App() {
             // Clear the URL without reloading
             const newUrl = window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
-            setActiveTab('mais'); // Navigate to social screen to see new friend
+            setActiveTab('grupos'); // Navigate to groups screen to see new friend
             alert('Novo amigo adicionado com sucesso! 🎉');
           } catch (error) {
             console.error('Erro ao processar convite:', error);
@@ -160,9 +159,7 @@ function App() {
       case 'compras': 
         return <ComprasScreen />;
       case 'grupos':
-        return <MaisScreen forceView="grupos" />; // Temporary: MaisScreen handles Grupos logic
-      case 'mais': 
-        return <MaisScreen />;
+        return <MaisScreen forceView="grupos" />;
       default: 
         return <PlanejarScreen transactions={transactions} />;
     }
@@ -171,7 +168,7 @@ function App() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100">
       <Header user={user} onLogout={logout} />
-      <main className="max-w-5xl mx-auto pt-24 pb-36">
+      <main className="max-w-5xl mx-auto pb-36">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
