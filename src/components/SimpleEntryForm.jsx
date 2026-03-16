@@ -46,7 +46,7 @@ const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicio
             {friends.length > 0 && (
               <div className="space-y-4">
                 <label className="text-[10px] uppercase font-black text-zinc-400 tracking-widest block text-center italic">Amigos Sugeridos</label>
-                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar justify-center">
+                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
                   {friends.map(f => (
                     <button
                       key={f.id}

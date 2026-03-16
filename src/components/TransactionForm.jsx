@@ -311,7 +311,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
             {/* Emoji Selection Horizontal Scroll */}
             <div className="space-y-4">
               <label className="text-[10px] uppercase font-black text-zinc-400 tracking-wider block text-center">Identificado por</label>
-              <div className="flex overflow-x-auto gap-4 pt-4 pb-4 px-1 no-scrollbar scroll-smooth justify-center">
+              <div className="flex overflow-x-auto gap-4 pt-4 pb-4 px-1 no-scrollbar scroll-smooth">
                 {PRESET_EMOJIS.map(e => (
                   <button
                     key={e}
@@ -368,7 +368,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                     required
                     value={formData.dueDate}
                     onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                    className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-15 rounded-[2rem] font-black text-xl text-center focus:ring-2 focus:ring-verde/20 transition-all"
+                    className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-6 rounded-[2rem] font-black text-xl text-center focus:ring-2 focus:ring-verde/20 transition-all"
                   />
                 </div>
               </div>

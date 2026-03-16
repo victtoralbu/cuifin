@@ -106,6 +106,11 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
             <div className="text-right">
               <p className={`font-black text-sm ${transaction.status === 'pago' ? 'text-zinc-500 line-through' : (transaction.type === 'receita' ? 'text-verde' : (getStatusColor(transaction.dueDate) === 'status-vermelho' ? 'text-vermelho' : 'text-zinc-900 dark:text-zinc-100'))}`}>
                 {transaction.type === 'receita' ? '+' : ''} R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                {transaction.splitWith?.length > 0 && (
+                  <span className="text-[10px] opacity-60 ml-1 font-bold italic">
+                    (R$ {(transaction.amount / (transaction.splitWith.length + 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cada)
+                  </span>
+                )}
               </p>
               {isExpanded ? <ChevronUp size={14} className="ml-auto mt-1" /> : <ChevronDown size={14} className="ml-auto mt-1" />}
             </div>

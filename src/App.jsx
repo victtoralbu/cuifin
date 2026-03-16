@@ -144,7 +144,31 @@ function App() {
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000); // 30s refresh
-    return () => clearInterval(interval);
+
+    // Dynamic Status Bar Color
+    const updateMetaTheme = () => {
+      const isDark = document.documentElement.classList.contains('dark') || 
+                     window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const color = isDark ? '#000000' : '#f9fafb';
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'theme-color';
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', color);
+    };
+
+    updateMetaTheme();
+    
+    // Watch for color scheme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', updateMetaTheme);
+
+    return () => {
+      clearInterval(interval);
+      mediaQuery.removeEventListener('change', updateMetaTheme);
+    };
   }, [user]);
 
   const handleRespondToNotification = async (id, status) => {

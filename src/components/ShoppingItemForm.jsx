@@ -120,7 +120,7 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
             {/* Emoji Selection */}
             <div className="space-y-6">
               <label className="text-[10px] uppercase font-black text-zinc-400 tracking-widest block text-center">Identificar por</label>
-              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar px-1">
+              <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar px-1">
                 {['🛒', '🍎', '🥩', '🥛', '🍞', '🥤', '🧼', '🍗', '🥬', '🍚'].map(emoji => (
                   <button
                     key={emoji}

@@ -10,7 +10,10 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
-  const [selectedMonth, setSelectedMonth] = useState(null); // focused month key
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.toLocaleString('pt-BR', { month: 'long' })} ${now.getFullYear()}`;
+  }); // focused month key
   const [showTutorial, setShowTutorial] = useState(false);
   const [friends, setFriends] = useState([]);
 
@@ -70,7 +73,9 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   const monthCapitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
   const monthsData = getAllMonths();
-  const currentGrouped = selectedMonth ? { [selectedMonth]: monthsData[selectedMonth] } : monthsData;
+  const currentGrouped = selectedMonth && monthsData[selectedMonth] 
+    ? { [selectedMonth]: monthsData[selectedMonth] } 
+    : (selectedMonth ? {} : monthsData);
 
   // Compute totals for current footer
   const visibleTransactions = selectedMonth ? monthsData[selectedMonth]?.items || [] : allTransactions;
@@ -143,11 +148,14 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
                 <p className={`text-sm font-black ${data.total >= 0 ? 'text-verde' : 'text-vermelho'}`}>
                   R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-[8px] font-bold text-zinc-400 uppercase mt-1 tracking-tighter">Impacto no Saldo</p>
+                <p className="text-[8px] font-bold text-zinc-400 uppercase mt-1 tracking-tighter">Saldo Mensal</p>
               </div>
             </motion.button>
           ))}
-          <button className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center h-40 text-zinc-400">
+          <button 
+            onClick={() => setIsFormOpen(true)}
+            className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center h-40 text-zinc-400 active:scale-95 transition-all"
+          >
             <Plus size={24} className="mb-2" />
             <span className="text-[10px] font-black uppercase">Novo Mês</span>
           </button>
@@ -162,7 +170,9 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       {/* Sticky Header - Improved to cover gap */}
       <div className="sticky top-0 z-30 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-xl -mx-4 px-4 pt-24 pb-2 mb-4 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-end transition-all">
         <div className="flex items-center gap-2 pb-1">
-          <h2 className="text-2xl font-black tracking-tight">{selectedMonth ? monthsData[selectedMonth]?.name : 'Planejar'}</h2>
+          <h2 className="text-2xl font-black tracking-tight">
+            {selectedMonth ? (monthsData[selectedMonth]?.name || monthCapitalize(selectedMonth.split(' ')[0])) : 'Planejar'}
+          </h2>
           {selectedMonth && <button onClick={() => setSelectedMonth(null)} className="text-[10px] font-black uppercase text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-1 rounded-lg">Ver tudo</button>}
         </div>
         <div className="flex gap-2 pb-1">
@@ -239,7 +249,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       <div className="fixed bottom-24 left-4 right-4 z-40">
         <div className="bg-zinc-900/90 dark:bg-zinc-800/90 backdrop-blur-lg border border-white/10 dark:border-zinc-700 p-4 rounded-2xl shadow-2xl flex justify-between items-center text-white">
           <div>
-            <p className="text-[10px] font-bold uppercase text-zinc-400 tracking-tighter">Saldo Mensal</p>
+            <p className="text-[10px] font-bold uppercase text-zinc-400 tracking-tighter">Saldo</p>
             <p className={`text-xl font-black ${balance >= 0 ? 'text-verde' : 'text-vermelho'}`}>
               R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
