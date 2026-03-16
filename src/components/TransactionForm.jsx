@@ -1,3 +1,6 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Check, Calendar, Users, Smile, User, Plus } from 'lucide-react';
 import { dataService } from '../lib/dataService';
 
 const PRESET_EMOJIS = ['💸', '🏠', '🍔', '⚡', '🌐', '🚗', '🛒', '💊', '🍿', '🎮', '🍎', '🍺'];
