@@ -167,16 +167,23 @@ function App() {
     const updateMetaTheme = () => {
       const isDark = document.documentElement.classList.contains('dark') || 
                      window.matchMedia('(prefers-color-scheme: dark)').matches;
-      // Use #f9fafb (zinc-50) for light mode and #000000 for dark mode to match UI exactly
-      // This overrides the 'default' green/blue status bars on some mobile browsers
       const color = isDark ? '#000000' : '#f9fafb';
-      let meta = document.querySelector('meta[name="theme-color"]');
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.name = 'theme-color';
-        document.head.appendChild(meta);
+      
+      let metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (!metaTheme) {
+        metaTheme = document.createElement('meta');
+        metaTheme.name = 'theme-color';
+        document.head.appendChild(metaTheme);
       }
-      meta.setAttribute('content', color);
+      metaTheme.setAttribute('content', color);
+
+      let metaSafari = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+      if (!metaSafari) {
+        metaSafari = document.createElement('meta');
+        metaSafari.name = 'apple-mobile-web-app-status-bar-style';
+        document.head.appendChild(metaSafari);
+      }
+      metaSafari.setAttribute('content', isDark ? 'black' : 'default');
     };
 
     updateMetaTheme();

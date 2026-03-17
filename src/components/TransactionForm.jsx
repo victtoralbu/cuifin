@@ -173,66 +173,6 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                 </button>
               </div>
 
-              {/* Payer Selection - Only when divided */}
-              <AnimatePresence>
-                {isDivided && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="pt-2 border-b border-zinc-50 dark:border-zinc-900 pb-4"
-                  >
-                    <label className="text-[10px] uppercase font-black text-orange-500 tracking-wider block mb-3 text-center">Quem pagou?</label>
-                    <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar px-1 justify-center">
-                      {/* Current User */}
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, paidById: user.id, paidByName: user?.user_metadata?.full_name || user?.email })}
-                        className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
-                      >
-                        <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.paidById === user.id ? 'border-verde scale-110 shadow-lg shadow-verde/20' : 'border-transparent grayscale opacity-50'}`}>
-                          <img
-                            src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.user_metadata?.full_name || 'Voce'}&background=random`}
-                            className="w-full h-full rounded-full object-cover"
-                            alt="Você"
-                          />
-                        </div>
-                        <span className={`text-[8px] font-black uppercase tracking-tighter ${formData.paidById === user.id ? 'text-verde' : 'text-zinc-400'}`}>
-                          Você
-                        </span>
-                      </button>
-
-                      {/* Members (Group or Individual splitWith) */}
-                      {(formData.groupId ? (groups.find(g => g.id === formData.groupId)?.members || []) : friends.filter(f => formData.splitWith.includes(f.id))).map(m => {
-                        const mId = m.user_id || m.id;
-                        const mName = m.name;
-                        if (mId === user.id) return null;
-                        
-                        return (
-                          <button
-                            key={mId}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, paidById: mId, paidByName: mName })}
-                            className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
-                          >
-                            <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.paidById === mId ? 'border-verde scale-110 shadow-lg shadow-verde/20' : 'border-transparent grayscale opacity-50'}`}>
-                              <img
-                                src={m.avatar || `https://ui-avatars.com/api/?name=${mName}&background=random`}
-                                className="w-full h-full rounded-full object-cover"
-                                alt={mName}
-                              />
-                            </div>
-                            <span className={`text-[8px] font-black uppercase tracking-tighter max-w-[48px] truncate ${formData.paidById === mId ? 'text-verde' : 'text-zinc-400'}`}>
-                              {mName.split(' ')[0]}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
               {/* Split Selection - Only when divided */}
               <AnimatePresence>
                 {isDivided && (
@@ -243,7 +183,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                     className="space-y-4 overflow-hidden"
                   >
                     <label className="text-[10px] uppercase font-black text-orange-500 tracking-wider block mt-2 text-center">Dividir com quem?</label>
-                    <div className="flex flex-col gap-6 overflow-x-auto pt-2 pb-4 no-scrollbar px-1 justify-center">
+                    <div className="flex flex-col gap-6 overflow-x-auto pt-3 pb-4 no-scrollbar px-1 justify-center">
                       {/* Groups List */}
                       {groups.length > 0 && (
                         <div className="flex gap-4 items-center mb-2 justify-center">
@@ -322,6 +262,66 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                           )}
                         </div>
                       )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Payer Selection - Only when divided */}
+              <AnimatePresence>
+                {isDivided && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-2 border-b border-zinc-50 dark:border-zinc-900 pb-4"
+                  >
+                    <label className="text-[10px] uppercase font-black text-orange-500 tracking-wider block mb-3 text-center">Quem pagou?</label>
+                    <div className="flex gap-4 overflow-x-auto pt-3 pb-2 no-scrollbar px-1 justify-center">
+                      {/* Current User */}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, paidById: user.id, paidByName: user?.user_metadata?.full_name || user?.email })}
+                        className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
+                      >
+                        <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.paidById === user.id ? 'border-verde scale-110 shadow-lg shadow-verde/20' : 'border-transparent grayscale opacity-50'}`}>
+                          <img
+                            src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.user_metadata?.full_name || 'Voce'}&background=random`}
+                            className="w-full h-full rounded-full object-cover"
+                            alt="Você"
+                          />
+                        </div>
+                        <span className={`text-[8px] font-black uppercase tracking-tighter ${formData.paidById === user.id ? 'text-verde' : 'text-zinc-400'}`}>
+                          Você
+                        </span>
+                      </button>
+
+                      {/* Members (Group or Individual splitWith) */}
+                      {(formData.groupId ? (groups.find(g => g.id === formData.groupId)?.members || []) : friends.filter(f => formData.splitWith.includes(f.id))).map(m => {
+                        const mId = m.user_id || m.id;
+                        const mName = m.name;
+                        if (mId === user.id) return null;
+                        
+                        return (
+                          <button
+                            key={mId}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, paidById: mId, paidByName: mName })}
+                            className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
+                          >
+                            <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.paidById === mId ? 'border-verde scale-110 shadow-lg shadow-verde/20' : 'border-transparent grayscale opacity-50'}`}>
+                              <img
+                                src={m.avatar || `https://ui-avatars.com/api/?name=${mName}&background=random`}
+                                className="w-full h-full rounded-full object-cover"
+                                alt={mName}
+                              />
+                            </div>
+                            <span className={`text-[8px] font-black uppercase tracking-tighter max-w-[48px] truncate ${formData.paidById === mId ? 'text-verde' : 'text-zinc-400'}`}>
+                              {mName.split(' ')[0]}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 )}

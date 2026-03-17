@@ -61,7 +61,7 @@ const ScannableCard = ({
   };
 
   const compressImage = (file) => {
-    return new Promise((resolve, reject) => {
+    const compressionPromise = new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
@@ -102,9 +102,22 @@ const ScannableCard = ({
             resolve(compressedFile);
           }, 'image/jpeg', 0.8);
         };
-        img.onerror = (e) => reject(new Error('Image load failed'));
+        img.onerror = () => reject(new Error('Image load failed'));
       };
-      reader.onerror = (e) => reject(new Error('File reader failed'));
+      reader.onerror = () => reject(new Error('File reader failed'));
+    });
+
+    // 6-second timeout to prevent infinite loading on older devices
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn('Compression timed out, using original file');
+        resolve(file);
+      }, 6000);
+    });
+
+    return Promise.race([compressionPromise, timeoutPromise]).catch(err => {
+      console.error('Compression error, using original:', err);
+      return file;
     });
   };
 
