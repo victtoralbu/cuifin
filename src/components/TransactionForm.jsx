@@ -438,7 +438,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                       required
                       value={formData.dueDate}
                       onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                      className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-6 rounded-[2rem] font-black text-sm text-center focus:ring-2 focus:ring-verde/20 transition-all"
+                      className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-8 rounded-[2rem] font-black text-sm text-center focus:ring-2 focus:ring-verde/20 transition-all min-w-[160px]"
                     />
                   </div>
                   
@@ -469,11 +469,25 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                             setFormData({ ...formData, installmentCount: num });
                             setShowInstallmentPicker(false);
                           }}
-                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.installmentCount === num ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900' : 'bg-transparent text-zinc-400 border border-zinc-100 dark:border-zinc-800'}`}
+                          className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.installmentCount === num ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg' : 'bg-transparent text-zinc-400 border border-zinc-100 dark:border-zinc-800'}`}
                         >
                           {num === 1 ? '1x (À Vista)' : `${num}x`}
                         </button>
                       ))}
+                      {/* Custom input */}
+                      <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 p-1 px-3 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                        <span className="text-[10px] font-black text-zinc-400 uppercase">Outro:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          placeholder="Ex: 10"
+                          className="w-12 bg-transparent text-[10px] font-black text-zinc-900 dark:text-white focus:outline-none text-center"
+                          value={formData.installmentCount}
+                          onChange={(e) => setFormData({ ...formData, installmentCount: parseInt(e.target.value) || 1 })}
+                          onKeyDown={(e) => { if (e.key === 'Enter') setShowInstallmentPicker(false); }}
+                        />
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
