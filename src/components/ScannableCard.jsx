@@ -4,6 +4,7 @@ import { Calendar, User, Paperclip, Check, ChevronDown, ChevronUp, Edit, Trash2,
 import { useAuth } from '../context/AuthContext';
 import { dataService } from '../lib/dataService';
 import { Loader2 } from 'lucide-react';
+import { compressImage } from '../utils/imageUtils';
 
 const ScannableCard = ({
   transaction,
@@ -60,66 +61,6 @@ const ScannableCard = ({
     }
   };
 
-  const compressImage = (file) => {
-    const compressionPromise = new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1200;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob((blob) => {
-            if (!blob) {
-              reject(new Error('Canvas to Blob failed'));
-              return;
-            }
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            resolve(compressedFile);
-          }, 'image/jpeg', 0.8);
-        };
-        img.onerror = () => reject(new Error('Image load failed'));
-      };
-      reader.onerror = () => reject(new Error('File reader failed'));
-    });
-
-    // 6-second timeout to prevent infinite loading on older devices
-    const timeoutPromise = new Promise((resolve) => {
-      setTimeout(() => {
-        console.warn('Compression timed out, using original file');
-        resolve(file);
-      }, 6000);
-    });
-
-    return Promise.race([compressionPromise, timeoutPromise]).catch(err => {
-      console.error('Compression error, using original:', err);
-      return file;
-    });
-  };
 
   const handleAttachmentUpload = async (e) => {
     const file = e.target.files[0];
@@ -132,15 +73,7 @@ const ScannableCard = ({
       // Compression stage to prevent mobile crashes with high-res photos
       let fileToUpload = file;
       if (file.type.startsWith('image/')) {
-        try {
-          fileToUpload = await compressImage(file);
-          console.log('Image compressed successfully:', { 
-            original: (file.size / 1024 / 1024).toFixed(2) + 'MB', 
-            compressed: (fileToUpload.size / 1024 / 1024).toFixed(2) + 'MB' 
-          });
-        } catch (compressErr) {
-          console.warn('Compression failed, uploading original:', compressErr);
-        }
+        fileToUpload = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
       }
 
       const url = await dataService.uploadTransactionAttachment(fileToUpload);
