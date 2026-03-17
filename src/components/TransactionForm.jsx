@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Calendar, Users, Smile, User, Plus } from 'lucide-react';
+import { X, Check, Calendar, Users, Smile, User, Plus, Paperclip, Repeat, Trash2 } from 'lucide-react';
 import { dataService } from '../lib/dataService';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,8 +19,14 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
     emoji: '💸',
     splitWith: [], // Array of user IDs
     groupId: null,
-    groupName: null
+    groupName: null,
+    paidById: null,
+    paidByName: null,
+    installmentCount: 1,
+    attachmentUrl: null
   });
+  const [isUploading, setIsUploading] = useState(false);
+  const [showInstallmentPicker, setShowInstallmentPicker] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -46,7 +52,9 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
         amount: initialData.amount.toString(),
         splitWith: initialData.splitWith || [],
         groupId: initialData.groupId || null,
-        groupName: initialData.groupName || null
+        groupName: initialData.groupName || null,
+        paidById: initialData.paidById || user?.id,
+        paidByName: initialData.paidByName || user?.user_metadata?.full_name || user?.email
       });
       setIsDivided(!!(initialData.splitWith && initialData.splitWith.length > 0));
       setShowCustomEmoji(!PRESET_EMOJIS.includes(initialData.emoji));
@@ -59,7 +67,9 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
         emoji: '💸',
         splitWith: [],
         groupId: null,
-        groupName: null
+        groupName: null,
+        paidById: user?.id,
+        paidByName: user?.user_metadata?.full_name || user?.email
       });
       setIsDivided(false);
       setShowCustomEmoji(false);
@@ -144,9 +154,8 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
-            {/* Control Group: Split and Type */}
-            <div className="space-y-3">
-              {/* Split Mode Toggle */}
+            {/* Split Mode & Payer Selection */}
+            <div className="space-y-4">
               <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-2xl">
                 <button
                   type="button"
@@ -164,7 +173,67 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                 </button>
               </div>
 
-              {/* Split Selection - MOVED UP */}
+              {/* Payer Selection - Only when divided */}
+              <AnimatePresence>
+                {isDivided && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-2 border-b border-zinc-50 dark:border-zinc-900 pb-4"
+                  >
+                    <label className="text-[10px] uppercase font-black text-orange-500 tracking-wider block mb-3 text-center">Quem pagou?</label>
+                    <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar px-1 justify-center">
+                      {/* Current User */}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, paidById: user.id, paidByName: user?.user_metadata?.full_name || user?.email })}
+                        className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
+                      >
+                        <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.paidById === user.id ? 'border-verde scale-110 shadow-lg shadow-verde/20' : 'border-transparent grayscale opacity-50'}`}>
+                          <img
+                            src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.user_metadata?.full_name || 'Voce'}&background=random`}
+                            className="w-full h-full rounded-full object-cover"
+                            alt="Você"
+                          />
+                        </div>
+                        <span className={`text-[8px] font-black uppercase tracking-tighter ${formData.paidById === user.id ? 'text-verde' : 'text-zinc-400'}`}>
+                          Você
+                        </span>
+                      </button>
+
+                      {/* Members (Group or Individual splitWith) */}
+                      {(formData.groupId ? (groups.find(g => g.id === formData.groupId)?.members || []) : friends.filter(f => formData.splitWith.includes(f.id))).map(m => {
+                        const mId = m.user_id || m.id;
+                        const mName = m.name;
+                        if (mId === user.id) return null;
+                        
+                        return (
+                          <button
+                            key={mId}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, paidById: mId, paidByName: mName })}
+                            className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
+                          >
+                            <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.paidById === mId ? 'border-verde scale-110 shadow-lg shadow-verde/20' : 'border-transparent grayscale opacity-50'}`}>
+                              <img
+                                src={m.avatar || `https://ui-avatars.com/api/?name=${mName}&background=random`}
+                                className="w-full h-full rounded-full object-cover"
+                                alt={mName}
+                              />
+                            </div>
+                            <span className={`text-[8px] font-black uppercase tracking-tighter max-w-[48px] truncate ${formData.paidById === mId ? 'text-verde' : 'text-zinc-400'}`}>
+                              {mName.split(' ')[0]}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Split Selection - Only when divided */}
               <AnimatePresence>
                 {isDivided && (
                   <motion.div
@@ -173,7 +242,8 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                     exit={{ opacity: 0, height: 0 }}
                     className="space-y-4 overflow-hidden"
                   >
-                    <div className="flex flex-col gap-6 overflow-x-auto pt-4 pb-4 no-scrollbar px-1">
+                    <label className="text-[10px] uppercase font-black text-orange-500 tracking-wider block mt-2 text-center">Dividir com quem?</label>
+                    <div className="flex flex-col gap-6 overflow-x-auto pt-2 pb-4 no-scrollbar px-1 justify-center">
                       {/* Groups List */}
                       {groups.length > 0 && (
                         <div className="flex gap-4 items-center mb-2 justify-center">
@@ -188,7 +258,7 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                                 key={g.id}
                                 type="button"
                                 onClick={() => toggleGroup(g)}
-                                className={`flex flex-col items-center gap-1 transition-all flex-shrink-0 animate-in fade-in slide-in-from-left duration-300`}
+                                className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
                               >
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${isGroupSelected ? 'bg-orange-500 border-orange-500 text-white scale-110 shadow-lg shadow-orange-500/20' : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 text-orange-500'}`}>
                                   <Users size={20} />
@@ -201,13 +271,13 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                           })}
                           <div className="w-px h-8 bg-zinc-100 dark:bg-zinc-800 mx-2 flex-shrink-0" />
                           
-                          {/* Friends List - Existing Rendering */}
+                          {/* Friends List */}
                           {friends.length > 0 ? friends.map(u => (
                             <button
                               key={u.id}
                               type="button"
                               onClick={() => toggleUser(u.id)}
-                              className={`flex flex-col items-center gap-1 transition-all flex-shrink-0 animate-in fade-in slide-in-from-right duration-300`}
+                              className={`flex flex-col items-center gap-1 transition-all flex-shrink-0`}
                             >
                               <div className={`w-12 h-12 rounded-full border-2 transition-all p-0.5 ${formData.splitWith.includes(u.id) ? 'border-orange-500 scale-110 shadow-lg shadow-orange-500/20' : 'border-transparent grayscale opacity-50'}`}>
                                 <img
@@ -226,9 +296,9 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                         </div>
                       )}
 
-                      {/* If no groups but has friends, just show friends centered */}
+                      {/* If no groups but has friends */}
                       {groups.length === 0 && (
-                        <div className="flex justify-center gap-6">
+                        <div className="flex justify-center gap-6 items-center">
                            {friends.length > 0 ? friends.map(u => (
                             <button
                               key={u.id}
@@ -257,9 +327,8 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
                 )}
               </AnimatePresence>
 
-
               {/* Transaction Type Toggle */}
-              <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-2xl">
+              <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-2xl pt-2">
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, type: 'receita' })}
@@ -362,15 +431,52 @@ const TransactionForm = ({ isOpen, onClose, onSave, initialData }) => {
               {/* Due Date */}
               <div className="space-y-4">
                 <label className="text-[10px] uppercase font-black text-zinc-400 tracking-wider block text-center">📅 DATA DE VENCIMENTO / RECEBIMENTO</label>
-                <div className="flex justify-center">
-                  <input
-                    type="date"
-                    required
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                    className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-6 rounded-[2rem] font-black text-xl text-center focus:ring-2 focus:ring-verde/20 transition-all"
-                  />
+                <div className="flex items-center justify-center gap-4">
+                  <div className="relative">
+                    <input
+                      type="date"
+                      required
+                      value={formData.dueDate}
+                      onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                      className="bg-zinc-100 dark:bg-zinc-900 border-none p-5 px-6 rounded-[2rem] font-black text-sm text-center focus:ring-2 focus:ring-verde/20 transition-all"
+                    />
+                  </div>
+                  
+                  {/* Actions: Installments */}
+                  <button
+                    type="button"
+                    onClick={() => setShowInstallmentPicker(!showInstallmentPicker)}
+                    className={`h-[60px] px-6 rounded-[2rem] flex items-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest ${formData.installmentCount > 1 ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xl' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400'}`}
+                  >
+                    <Repeat size={18} />
+                    {formData.installmentCount > 1 ? `${formData.installmentCount} Parcelas` : 'À Vista'}
+                  </button>
                 </div>
+
+                <AnimatePresence>
+                  {showInstallmentPicker && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex flex-wrap gap-2 justify-center pt-2"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 12, 18, 24].map(num => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, installmentCount: num });
+                            setShowInstallmentPicker(false);
+                          }}
+                          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.installmentCount === num ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900' : 'bg-transparent text-zinc-400 border border-zinc-100 dark:border-zinc-800'}`}
+                        >
+                          {num === 1 ? '1x (À Vista)' : `${num}x`}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 

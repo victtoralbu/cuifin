@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ScannableCard from '../components/ScannableCard';
 import TransactionForm from '../components/TransactionForm';
 import SwipeTutorial from '../components/SwipeTutorial';
-import { Plus, Calendar as CalendarIcon, ArrowLeft } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, ArrowLeft, Copy, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { dataService } from '../lib/dataService';
 
@@ -10,9 +10,12 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
-  const [selectedMonth, setSelectedMonth] = useState(null); // null means all visible months
+  const [selectedMonth, setSelectedMonth] = useState(() => localStorage.getItem('cuifin_selected_month')); // null/undefined means all visible months
   const [showTutorial, setShowTutorial] = useState(false);
   const [friends, setFriends] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isCopying, setIsCopying] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     const fetchFriends = async () => {
@@ -165,7 +168,11 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
         setShowTutorial(true);
       }
     }
+    // Note: We don't null editingItem or close form if we want to keep it open?
+    // But here we usually want to close it.
+    // However, for in-card updates like attachment, ScannableCard calls onUpdate directly.
     setEditingItem(null);
+    setIsFormOpen(false);
   };
 
   const handleTutorialComplete = () => {
@@ -183,6 +190,61 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
     setEditingItem(item);
     setIsFormOpen(true);
   };
+  
+  const toggleSelection = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (window.confirm(`Deseja excluir as ${selectedIds.length} transações selecionadas?`)) {
+      for (const id of selectedIds) {
+        await onDelete(id);
+      }
+      setSelectedIds([]);
+    }
+  };
+
+  const handleBulkCopy = async (targetMonth, targetYear) => {
+    const selectedTransactions = transactions.filter(t => selectedIds.includes(t.id));
+    
+    for (const t of selectedTransactions) {
+      const originalDate = t.dueDate ? new Date(t.dueDate + 'T12:00:00') : new Date();
+      // Create new date with target month/year but keeping original day
+      let newDate = new Date(targetYear, targetMonth, originalDate.getDate());
+      
+      // Handle month overflow (e.g. copying 31st to a month with 30 days)
+      if (newDate.getMonth() !== targetMonth) {
+        newDate = new Date(targetYear, targetMonth + 1, 0); // Last day of target month
+      }
+
+      const { id, created_at, ...copyData } = t;
+      await onAdd({
+        ...copyData,
+        dueDate: newDate.toISOString().split('T')[0],
+        status: 'pendente' // Reset status for copies
+      });
+    }
+    
+    setSelectedIds([]);
+    setIsCopying(false);
+    alert(`${selectedTransactions.length} itens copiados com sucesso!`);
+  };
+
+  const nextSixMonths = (() => {
+    const months = [];
+    const now = new Date();
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      months.push({
+        label: d.toLocaleString('pt-BR', { month: 'short' }),
+        month: d.getMonth(),
+        year: d.getFullYear()
+      });
+    }
+    return months;
+  })();
 
   if (viewMode === 'calendar') {
     return (
@@ -203,6 +265,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
               whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setSelectedMonth(key);
+                localStorage.setItem('cuifin_selected_month', key);
                 setViewMode('list');
               }}
               className="bg-zinc-900 dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 text-left shadow-lg flex flex-col justify-between h-40 group active:scale-95 transition-all text-white"
@@ -238,23 +301,77 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       <div className="sticky top-0 z-30 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-xl -mx-4 px-4 pt-24 pb-2 mb-4 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-end transition-all">
         <div className="flex items-center gap-2 pb-1">
           <h2 className="text-2xl font-black tracking-tight">
-            {selectedMonth ? (monthsData[selectedMonth]?.name || monthCapitalize(selectedMonth.split(' ')[0])) : 'Planejar'}
+            {selectedIds.length > 0 
+              ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''}`
+              : selectedMonth ? (monthsData[selectedMonth]?.name || monthCapitalize(selectedMonth.split(' ')[0])) : 'Planejar'}
           </h2>
-          {selectedMonth && <button onClick={() => setSelectedMonth(null)} className="text-[10px] font-black uppercase text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-1 rounded-lg">Ver tudo</button>}
+          {selectedIds.length > 0 ? (
+            <button onClick={() => setSelectedIds([])} className="text-[10px] font-black uppercase text-vermelho bg-vermelho/10 px-2 py-1 rounded-lg">Cancelar</button>
+          ) : (
+            selectedMonth && <button onClick={() => {
+              setSelectedMonth(null);
+              localStorage.removeItem('cuifin_selected_month');
+            }} className="text-[10px] font-black uppercase text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-1 rounded-lg">Ver tudo</button>
+          )}
         </div>
-        <div className="flex gap-2 pb-1">
-          <button
-            onClick={() => setViewMode('calendar')}
-            className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 p-3 rounded-2xl active:scale-95 transition-all shadow-sm border border-zinc-200 dark:border-zinc-800"
-          >
-            <CalendarIcon size={22} />
-          </button>
-          <button
-            onClick={() => setIsFormOpen(true)}
-            className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-3 rounded-2xl active:scale-95 transition-all shadow-xl shadow-zinc-900/10"
-          >
-            <Plus size={22} />
-          </button>
+        <div className="flex gap-2 pb-1 relative">
+          {selectedIds.length > 0 ? (
+            <>
+              <div className="relative">
+                <button
+                  onClick={() => setIsCopying(!isCopying)}
+                  className="bg-zinc-100 dark:bg-zinc-900 text-verde p-3 rounded-2xl active:scale-95 transition-all shadow-sm border border-zinc-200 dark:border-zinc-800"
+                >
+                  <Copy size={22} />
+                </button>
+                <AnimatePresence>
+                  {isCopying && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                      className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[32px] shadow-2xl border border-zinc-100 dark:border-zinc-800 p-3 min-w-[180px] z-50 overflow-hidden"
+                    >
+                      <p className="text-[9px] font-black uppercase text-zinc-400 px-2 pb-2 mb-2 border-b border-zinc-100 dark:border-zinc-800">Copiar para:</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {nextSixMonths.map(m => (
+                          <button
+                            key={`${m.month}-${m.year}`}
+                            onClick={() => handleBulkCopy(m.month, m.year)}
+                            className="flex flex-col items-center justify-center p-2 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 hover:bg-verde/10 dark:hover:bg-verde/20 border border-zinc-100 dark:border-zinc-800 transition-all active:scale-90"
+                          >
+                            <span className="text-[10px] font-black uppercase text-zinc-700 dark:text-zinc-300">{m.label}</span>
+                            <span className="text-[7px] font-bold text-zinc-400 mt-0.5">{m.year}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <button
+                onClick={handleBulkDelete}
+                className="bg-vermelho/10 text-vermelho p-3 rounded-2xl active:scale-95 transition-all shadow-sm border border-vermelho/20"
+              >
+                <Trash2 size={22} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 p-3 rounded-2xl active:scale-95 transition-all shadow-sm border border-zinc-200 dark:border-zinc-800"
+              >
+                <CalendarIcon size={22} />
+              </button>
+              <button
+                onClick={() => setIsFormOpen(true)}
+                className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 p-3 rounded-2xl active:scale-95 transition-all shadow-xl shadow-zinc-900/10"
+              >
+                <Plus size={22} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -263,8 +380,8 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
           Object.entries(currentGrouped).map(([month, data]) => (
             <div key={month}>
               {!selectedMonth && (
-                <div className="bg-zinc-900 dark:bg-zinc-800 text-white p-3 px-4 rounded-xl flex justify-between items-center mb-4 shadow-lg">
-                  <h3 className="font-bold capitalize text-sm tracking-wide">{month}</h3>
+                <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50 p-3 px-4 rounded-2xl flex justify-between items-center mb-4 shadow-sm transition-all">
+                  <h3 className="text-base font-black tracking-tight text-zinc-900 dark:text-zinc-100 capitalize">{month}</h3>
                   <p className={`font-black text-sm ${data.total >= 0 ? 'text-verde' : 'text-vermelho'}`}>
                     R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
@@ -279,6 +396,11 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
                     onUpdate={onUpdate}
                     onDelete={handleDelete}
                     onEdit={openEditForm}
+                    isSelected={selectedIds.includes(t.id)}
+                    onSelect={toggleSelection}
+                    isSelectionMode={selectedIds.length > 0}
+                    isExpanded={expandedId === t.id}
+                    onToggleExpand={() => setExpandedId(expandedId === t.id ? null : t.id)}
                   />
                 ))}
 

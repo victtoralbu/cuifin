@@ -53,27 +53,51 @@ const NotificationModal = ({ isOpen, onClose, notifications, onRespond }) => {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
-                          <span className="text-orange-500">{n.sender.name}</span> convidou você para dividir uma lista de compras!
+                          {n.type === 'shopping_invite' && (
+                            <>
+                              <span className="text-orange-500">{n.sender.name}</span> convidou você para dividir uma lista de compras!
+                            </>
+                          )}
+                          {n.type === 'transaction_split' && (
+                            <>
+                              <span className="text-orange-500">{n.sender.name}</span> dividiu uma conta de <span className="text-verde">R$ {n.data.amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> ({n.data.title}) com você!
+                            </>
+                          )}
+                          {n.type === 'group_transaction' && (
+                            <>
+                              <span className="text-orange-500">{n.sender.name}</span> adicionou uma conta de <span className="text-verde">R$ {n.data.amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> em um grupo com você!
+                            </>
+                          )}
                         </p>
                         <p className="text-[10px] font-medium text-zinc-500 mt-1 uppercase tracking-tighter">
                           {new Date(n.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    {n.type === 'shopping_invite' && (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => onRespond(n.id, 'accepted')}
+                          className="flex-1 bg-verde text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-verde/20 flex items-center justify-center gap-2"
+                        >
+                          <Check size={16} /> Aceitar
+                        </button>
+                        <button 
+                          onClick={() => onRespond(n.id, 'rejected')}
+                          className="flex-1 bg-zinc-100 dark:bg-zinc-900 text-vermelho py-3 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
+                        >
+                          <X size={16} /> Recusar
+                        </button>
+                      </div>
+                    )}
+                    {n.type !== 'shopping_invite' && (
                       <button 
-                        onClick={() => onRespond(n.id, 'accepted')}
-                        className="flex-1 bg-verde text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-verde/20 flex items-center justify-center gap-2"
+                        onClick={() => onRespond(n.id, 'read')}
+                        className="w-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500 py-3 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
                       >
-                        <Check size={16} /> Aceitar
+                        OK, entendi
                       </button>
-                      <button 
-                        onClick={() => onRespond(n.id, 'rejected')}
-                        className="flex-1 bg-zinc-100 dark:bg-zinc-900 text-vermelho py-3 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
-                      >
-                        <X size={16} /> Recusar
-                      </button>
-                    </div>
+                    )}
                   </div>
                 ))
               ) : (

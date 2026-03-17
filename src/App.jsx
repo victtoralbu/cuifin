@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutList, CheckCircle, ShoppingBag, Users, MoreHorizontal, LogOut } from 'lucide-react';
+import { LayoutList, CheckCircle, ShoppingBag, Users, MoreHorizontal, LogOut, RefreshCcw } from 'lucide-react';
 import { useTransactions } from './hooks/useTransactions';
 import PlanejarScreen from './screens/PlanejarScreen';
 import ComprasScreen from './screens/ComprasScreen';
@@ -28,12 +28,30 @@ const Header = ({ user, onLogout, notificationCount, onShowNotifications }) => {
         <div className="flex items-center gap-2">
           <button 
             onClick={() => onShowNotifications()}
-            className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 active:scale-90 transition-transform relative border border-zinc-200 dark:border-zinc-800"
+            className="p-2 flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-90 transition-all relative"
           >
             <Bell size={20} />
             {notificationCount > 0 && (
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-vermelho rounded-full border border-white dark:border-black" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-verde rounded-full border border-white dark:border-black" />
             )}
+          </button>
+          <button 
+            onClick={() => {
+              if (window.confirm('Forçar atualização do aplicativo? Isso limpará o cache local.')) {
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(registrations => {
+                    for (let registration of registrations) {
+                      registration.unregister();
+                    }
+                  });
+                }
+                window.location.reload(true);
+              }
+            }}
+            className="p-2 flex items-center justify-center text-zinc-500 hover:text-verde active:scale-90 transition-all"
+            title="Forçar Atualização"
+          >
+            <RefreshCcw size={20} /> 
           </button>
           <button 
             onClick={() => setShowMenu(!showMenu)}
@@ -118,7 +136,7 @@ const BottomNav = ({ activeTab, onTabChange }) => {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState('planejar');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('cuifin_active_tab') || 'planejar');
   const { user, logout, loading } = useAuth();
   const { 
     transactions, 
@@ -260,7 +278,10 @@ function App() {
           </motion.div>
         </AnimatePresence>
       </main>
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={(tab) => {
+        setActiveTab(tab);
+        localStorage.setItem('cuifin_active_tab', tab);
+      }} />
       
       <NotificationModal 
         isOpen={showNotifications}

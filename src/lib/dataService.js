@@ -21,7 +21,11 @@ export const dataService = {
       status: t.status,
       splitWith: t.split_with || [],
       installments: t.installments,
-      groupId: t.group_id
+      groupId: t.group_id,
+      paidById: t.paid_by_id,
+      paidByName: t.paid_by_name,
+      attachmentUrl: t.attachment_url,
+      createdAt: t.created_at
     }));
   },
 
@@ -29,39 +33,114 @@ export const dataService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([{
+    const installmentCount = parseInt(transaction.installmentCount) || 1;
+    const monthlyAmount = transaction.amount / installmentCount;
+    const transactionsToInsert = [];
+
+    for (let i = 0; i < installmentCount; i++) {
+      const dueDate = new Date(transaction.dueDate + 'T12:00:00');
+      const originalDay = dueDate.getDate();
+      
+      // Increment months
+      dueDate.setMonth(dueDate.getMonth() + i);
+      
+      // If the day changed (e.g. Jan 31 -> Feb 28/29), adjust to last day of month
+      if (dueDate.getDate() !== originalDay && i > 0) {
+        dueDate.setDate(0); // Go to last day of previous month
+      }
+
+      transactionsToInsert.push({
         user_id: user.id,
         type: transaction.type,
-        amount: transaction.amount,
+        amount: monthlyAmount,
         title: transaction.title,
         emoji: transaction.emoji,
-        due_date: transaction.dueDate,
+        due_date: dueDate.toISOString().split('T')[0],
         status: transaction.status,
         split_with: transaction.splitWith,
-        installments: transaction.installments,
-        group_id: transaction.groupId
-      }])
-      .select()
-      .single();
+        installments: installmentCount > 1 ? `${i + 1}/${installmentCount}` : transaction.installments,
+        group_id: transaction.groupId,
+        paid_by_id: transaction.paidById,
+        paid_by_name: transaction.paidByName,
+        attachment_url: transaction.attachmentUrl
+      });
+    }
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(transactionsToInsert)
+      .select();
 
     if (error) throw error;
-    return data;
+    
+    const createdTransaction = data[0]; // Return the first one (current month)
+
+    // Handle Notifications
+    try {
+      if (transaction.splitWith && transaction.splitWith.length > 0) {
+        // Individual splits
+        const notifications = transaction.splitWith.map(receiverId => ({
+          sender_id: user.id,
+          receiver_id: receiverId,
+          type: 'transaction_split',
+          status: 'pending',
+          data: {
+            transactionId: createdTransaction.id,
+            amount: transaction.amount,
+            title: transaction.title
+          }
+        }));
+        await supabase.from('notifications').insert(notifications);
+      } else if (transaction.groupId) {
+        // Group transaction
+        const { data: groupMembers } = await supabase
+          .from('group_members')
+          .select('user_id')
+          .eq('group_id', transaction.groupId);
+
+        if (groupMembers) {
+          const notifications = groupMembers
+            .filter(m => m.user_id && m.user_id !== user.id)
+            .map(m => ({
+              sender_id: user.id,
+              receiver_id: m.user_id,
+              type: 'group_transaction',
+              status: 'pending',
+              data: {
+                transactionId: createdTransaction.id,
+                amount: transaction.amount,
+                title: transaction.title,
+                groupId: transaction.groupId
+              }
+            }));
+          if (notifications.length > 0) {
+            await supabase.from('notifications').insert(notifications);
+          }
+        }
+      }
+    } catch (nError) {
+      console.error('Error creating transaction notifications:', nError);
+    }
+
+    return createdTransaction;
   },
 
   async updateTransaction(id, updates) {
     const dbUpdates = {};
-    if (updates.type) dbUpdates.type = updates.type;
+    if (updates.type !== undefined) dbUpdates.type = updates.type;
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
-    if (updates.title) dbUpdates.title = updates.title;
-    if (updates.emoji) dbUpdates.emoji = updates.emoji;
-    if (updates.dueDate) dbUpdates.due_date = updates.dueDate;
-    if (updates.status) dbUpdates.status = updates.status;
-    if (updates.splitWith) dbUpdates.split_with = updates.splitWith;
-    if (updates.installments) dbUpdates.installments = updates.installments;
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
+    if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.splitWith !== undefined) dbUpdates.split_with = updates.splitWith;
+    if (updates.installments !== undefined) dbUpdates.installments = updates.installments;
     if (updates.groupId !== undefined) dbUpdates.group_id = updates.groupId;
+    if (updates.paidById !== undefined) dbUpdates.paid_by_id = updates.paidById;
+    if (updates.paidByName !== undefined) dbUpdates.paid_by_name = updates.paidByName;
+    if (updates.attachmentUrl !== undefined) dbUpdates.attachment_url = updates.attachmentUrl;
 
+    console.log('Update Transaction Payload:', { id, dbUpdates });
     const { data, error } = await supabase
       .from('transactions')
       .update(dbUpdates)
@@ -69,7 +148,11 @@ export const dataService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Update Transaction DB Error:', error);
+      throw error;
+    }
+    console.log('Update Transaction Selection Success:', data);
     return data;
   },
 
@@ -85,26 +168,46 @@ export const dataService = {
   // --- SHOPPING LIST ---
   async getShoppingItems() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    if (!user) return { items: [], collaborators: [] };
 
-    // Get lists shared with the user
+    // Get lists shared by or with the user
     const { data: shares, error: sharesError } = await supabase
       .from('shopping_shares')
-      .select('owner_id')
-      .eq('collaborator_id', user.id);
+      .select('owner_id, collaborator_id')
+      .or(`owner_id.eq.${user.id},collaborator_id.eq.${user.id}`);
 
     if (sharesError) throw sharesError;
 
-    const ownerIds = [user.id, ...(shares?.map(s => s.owner_id) || [])];
+    // The items we can see are our own + those belonging to people who shared with us
+    const ownersFromShares = shares?.map(s => s.collaborator_id === user.id ? s.owner_id : null).filter(Boolean) || [];
+    const ownerIds = [user.id, ...ownersFromShares];
 
-    const { data, error } = await supabase
+    const { data: items, error: itemsError } = await supabase
       .from('shopping_items')
       .select('*')
       .in('user_id', ownerIds)
       .order('created_at', { ascending: false });
     
-    if (error) throw error;
-    return data;
+    if (itemsError) throw itemsError;
+
+    // Get all unique people involved in these lists to show their avatars
+    const allPeopleIds = [...new Set([
+      user.id,
+      ...(shares?.map(s => s.owner_id) || []),
+      ...(shares?.map(s => s.collaborator_id) || [])
+    ])];
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, avatar_url')
+      .in('id', allPeopleIds);
+
+    if (profilesError) throw profilesError;
+
+    return {
+      items,
+      collaborators: profiles
+    };
   },
 
   async addShoppingItem(item) {
@@ -203,10 +306,10 @@ export const dataService = {
       .from('profiles')
       .select('id')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
-      throw new Error('Usuário não encontrado com este e-mail');
+      throw new Error('USER_NOT_FOUND');
     }
 
     // Add friendship both ways
@@ -401,5 +504,56 @@ export const dataService = {
 
       if (shareError) throw shareError;
     }
+  },
+
+  async removeShoppingShare(collaboratorId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { error } = await supabase
+      .from('shopping_shares')
+      .delete()
+      .or(`and(owner_id.eq.${user.id},collaborator_id.eq.${collaboratorId}),and(owner_id.eq.${collaboratorId},collaborator_id.eq.${user.id})`);
+
+    if (error) throw error;
+  },
+
+  async uploadTransactionAttachment(file) {
+    console.log('--- STARTING DATABASE ATTACHMENT UPLOAD ---');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('No authenticated user found for upload');
+      throw new Error('User not authenticated');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}_${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
+
+    console.log('Target Storage path:', filePath);
+    console.log('Attempting Supabase storage upload...');
+    
+    const { error: uploadError } = await supabase.storage
+      .from('attachments')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('SUPABASE STORAGE UPLOAD ERROR:', uploadError);
+      throw uploadError;
+    }
+    
+    console.log('Supabase storage upload successful!');
+
+    const { data } = supabase.storage
+      .from('attachments')
+      .getPublicUrl(filePath);
+
+    if (!data || !data.publicUrl) {
+      console.error('Url generation failed: data or publicUrl is missing');
+      throw new Error('Failed to generate public URL');
+    }
+
+    console.log('Generated public attachment URL:', data.publicUrl);
+    return data.publicUrl;
   }
 };

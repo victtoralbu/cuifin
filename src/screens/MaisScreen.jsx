@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, History, ArrowLeft, Plus, Share2, Mail, Edit, Trash2, Copy, Check } from 'lucide-react';
+import { Users, History, ArrowLeft, Plus, Share2, Mail, Edit, Trash2, Copy, Check, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SimpleEntryForm from '../components/SimpleEntryForm';
 import { useAuth } from '../context/AuthContext';
@@ -55,6 +55,15 @@ const InviteModal = ({ isOpen, onClose, user, onAddFriend }) => {
     }
   };
 
+  const shareInvite = (method) => {
+    const message = `Olá! Estou usando o CuiFin para organizar minhas finanças e gostaria de te convidar. Cadastre-se em: ${window.location.origin}`;
+    if (method === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    } else {
+      window.open(`mailto:?subject=Convite CuiFin&body=${encodeURIComponent(message)}`, '_blank');
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -85,7 +94,31 @@ const InviteModal = ({ isOpen, onClose, user, onAddFriend }) => {
                 />
               </div>
 
-              {status && (
+              {status && status.type === 'error' && status.message === 'USER_NOT_FOUND' ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-zinc-50 dark:bg-zinc-800/50 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 text-center"
+                >
+                  <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-4 px-2">
+                    E-mail não encontrado. Deseja enviar um convite para o seu amigo?
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => shareInvite('whatsapp')}
+                      className="flex items-center justify-center gap-2 bg-verde/10 text-verde py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-verde/20 transition-all border border-verde/20"
+                    >
+                      WhatsApp
+                    </button>
+                    <button
+                      onClick={() => shareInvite('email')}
+                      className="flex items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-900 text-zinc-500 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-zinc-200 transition-all border border-zinc-200 dark:border-zinc-800"
+                    >
+                      E-mail
+                    </button>
+                  </div>
+                </motion.div>
+              ) : status && (
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -95,13 +128,15 @@ const InviteModal = ({ isOpen, onClose, user, onAddFriend }) => {
                 </motion.p>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl shadow-zinc-500/10 ${loading ? 'opacity-50' : ''}`}
-              >
-                {loading ? 'Buscando...' : 'Adicionar Amigo'}
-              </button>
+              {(!status || (status.type !== 'error' || status.message !== 'USER_NOT_FOUND')) && (
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl shadow-zinc-500/10 ${loading ? 'opacity-50' : ''}`}
+                >
+                  {loading ? 'Buscando...' : 'Adicionar Amigo'}
+                </button>
+              )}
             </form>
 
             <button
@@ -172,14 +207,19 @@ const MaisScreen = () => {
   };
 
   const getMemberPaidAmount = (group, member) => {
-    // A member "paid" if they created the transaction or were identified as payer
+    const memberId = member.user_id || null;
     return transactions
       .filter(t => t.groupId === group.id && t.type === 'despesa')
       .reduce((sum, t) => {
-        // If it's a member identified by user_id
-        if (member.user_id && t.user_id === member.user_id) return sum + t.amount;
-        // If it's a guest member identified by name (assuming we have a way to match)
-        if (!member.user_id && t.identified_name === member.name) return sum + t.amount;
+        // New logic: Check paid_by_id first
+        if (t.paidById) {
+          if (memberId && t.paidById === memberId) return sum + t.amount;
+          // If guest, match by name if ID was somehow not set or for legacy
+          if (!memberId && t.paidByName === member.name) return sum + t.amount;
+        } else {
+          // Fallback legacy logic: creator is the payer
+          if (memberId && t.userId === memberId) return sum + t.amount;
+        }
         return sum;
       }, 0);
   };
@@ -291,7 +331,7 @@ const MaisScreen = () => {
             onClick={() => setIsInviteOpen(true)}
             className="bg-zinc-100 dark:bg-zinc-900 text-verde p-3 rounded-2xl active:scale-90 transition-all shadow-sm border border-zinc-200 dark:border-zinc-800"
           >
-            <Mail size={22} />
+            <UserPlus size={22} />
           </button>
           <button
             onClick={() => openForm('Novo Grupo', addGroup, null, [], 'Nome do Grupo...')}
@@ -367,16 +407,27 @@ const MaisScreen = () => {
                     <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Integrantes</p>
                   </div>
                   <div className="flex flex-wrap gap-2.5">
-                    {group.members?.map(m => (
-                      <div key={m.id} className="bg-zinc-50 dark:bg-zinc-800 px-3.5 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 border border-zinc-100 dark:border-zinc-700/50 shadow-sm">
-                        <span className="opacity-80 uppercase tracking-tighter">{m.name || 'Usuário'}</span>
-                        {m.user_id !== user?.id && (
-                          <button onClick={() => removeMember(m.id)} className="text-zinc-400 hover:text-vermelho active:scale-90 transition-all font-black">
-                            <Plus size={14} className="rotate-45" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    {group.members?.map(m => {
+                      const isMe = m.user_id === user?.id;
+                      const friend = friends.find(f => f.id === m.user_id);
+                      const avatarUrl = isMe ? (user.user_metadata?.avatar_url || user.avatar) : (friend?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name || 'User'}`);
+                      
+                      return (
+                        <div key={m.id} className="bg-zinc-50 dark:bg-zinc-800 p-1.5 pr-3.5 rounded-2xl text-[10px] font-black flex items-center gap-2 border border-zinc-100 dark:border-zinc-700/50 shadow-sm transition-all hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                          <div className="w-6 h-6 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-600 shadow-sm flex-shrink-0">
+                            <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                          </div>
+                          <span className="opacity-80 uppercase tracking-tighter truncate max-w-[80px]">
+                            {isMe ? 'VOCÊ' : (m.name || 'Usuário')}
+                          </span>
+                          {m.user_id !== user?.id && (
+                            <button onClick={() => removeMember(m.id)} className="ml-1 text-zinc-400 hover:text-vermelho active:scale-90 transition-all font-black">
+                              <Plus size={14} className="rotate-45" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                     <button
                       onClick={() => {
                         const notInGroup = friends.filter(f => !group.members?.some(m => m.user_id === f.id));

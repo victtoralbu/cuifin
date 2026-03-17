@@ -18,12 +18,15 @@ const ComprasScreen = () => {
   const [showTutorial, setShowTutorial] = useState(false);
   const { user } = useAuth();
 
+  const [collaborators, setCollaborators] = useState([]);
+
   const fetchItems = useCallback(async () => {
     if (!user) return;
     try {
       setLoading(true);
-      const data = await dataService.getShoppingItems();
-      setItems(data);
+      const { items: fetchedItems, collaborators: fetchedCollaborators } = await dataService.getShoppingItems();
+      setItems(fetchedItems);
+      setCollaborators(fetchedCollaborators);
     } catch (error) {
       console.error('Error fetching shopping items:', error);
     } finally {
@@ -105,14 +108,21 @@ const ComprasScreen = () => {
     }
   };
 
-  const handleShareWithFriend = async (friend) => {
+  const handleShareWithFriend = async (friend, isCollaborator) => {
     try {
-      await dataService.sendShoppingInvite(friend.id);
-      alert(`Convite enviado para ${friend.name}! 🚀`);
+      if (isCollaborator) {
+        if (!window.confirm(`Deseja remover ${friend.name} desta lista?`)) return;
+        await dataService.removeShoppingShare(friend.id);
+        alert(`${friend.name} removido da lista! 👋`);
+      } else {
+        await dataService.sendShoppingInvite(friend.id);
+        alert(`Convite enviado para ${friend.name}! 🚀`);
+      }
+      await fetchItems();
       setIsFriendModalOpen(false);
     } catch (error) {
-      console.error('Error sending invite:', error);
-      alert('Erro ao enviar convite. Tente novamente.');
+      console.error('Error managing share:', error);
+      alert('Erro ao processar. Tente novamente.');
     }
   };
 
@@ -160,10 +170,20 @@ const ComprasScreen = () => {
         <div className="pb-1">
           <h2 className="text-2xl font-bold">Lista de Compras</h2>
           <div className="flex items-center gap-1.5 mt-1">
-             <div className="flex -space-x-1.5 grayscale opacity-50">
-               <img src={user?.avatar} className="w-4 h-4 rounded-full border border-white dark:border-zinc-950 object-cover" alt="" />
+             <div className="flex -space-x-1.5 items-center">
+               {collaborators.map((c, i) => (
+                 <img 
+                   key={c.id} 
+                   src={c.avatar_url || `https://ui-avatars.com/api/?name=User&background=random`} 
+                   className="w-5 h-5 rounded-full border-2 border-zinc-50 dark:border-black object-cover shadow-sm bg-zinc-200 dark:bg-zinc-800" 
+                   alt="" 
+                   style={{ zIndex: collaborators.length - i }}
+                 />
+               ))}
+               <span className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter ml-2">
+                 {collaborators.length > 1 ? 'Lista Compartilhada' : 'Sua Lista'}
+               </span>
             </div>
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">Sua Lista</span>
           </div>
         </div>
         <div className="flex gap-2 pb-1">
@@ -215,7 +235,7 @@ const ComprasScreen = () => {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="absolute inset-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-2"
+                          className="absolute inset-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-2 rounded-3xl"
                           onClick={(e) => { e.stopPropagation(); setShowMenuId(null); }}
                         >
                           <button 
@@ -304,6 +324,7 @@ const ComprasScreen = () => {
         friends={friends}
         onSelect={handleShareWithFriend}
         user={user}
+        collaborators={collaborators}
       />
       {showTutorial && <SwipeTutorial onComplete={handleTutorialComplete} />}
     </div>

@@ -14,6 +14,11 @@ DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 CREATE POLICY "Users can view their own profile" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
+-- Allow all users to discover each other for friend selection
+DROP POLICY IF EXISTS "Users can discover other profiles" ON public.profiles;
+CREATE POLICY "Users can discover other profiles" ON public.profiles
+  FOR SELECT USING (true);
+
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
@@ -31,21 +36,33 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   split_with TEXT[], -- IDs of users to split with
   installments TEXT, -- e.g., "1/12"
   group_id UUID REFERENCES public.groups ON DELETE SET NULL,
+  paid_by_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  paid_by_name TEXT,
+  attachment_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Function to check group membership without recursion
+CREATE OR REPLACE FUNCTION public.is_group_member(check_group_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = check_group_id AND user_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Enable RLS on transactions
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can manage their own transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Users can manage transactions" ON public.transactions;
 CREATE POLICY "Users can manage transactions" ON public.transactions
   FOR ALL USING (
     auth.uid() = user_id OR 
     auth.uid()::text = ANY(split_with) OR
-    EXISTS (
-      SELECT 1 FROM public.group_members
-      WHERE group_id = public.transactions.group_id AND user_id = auth.uid()
-    )
+    public.is_group_member(group_id)
   );
 
 -- Create shopping list table
@@ -135,13 +152,11 @@ CREATE TABLE IF NOT EXISTS public.groups (
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can manage their own groups" ON public.groups;
+DROP POLICY IF EXISTS "Users can manage groups" ON public.groups;
 CREATE POLICY "Users can manage groups" ON public.groups
   FOR ALL USING (
     auth.uid() = user_id OR
-    EXISTS (
-      SELECT 1 FROM public.group_members
-      WHERE group_id = public.groups.id AND user_id = auth.uid()
-    )
+    public.is_group_member(id)
   );
 
 -- Create group_members table
@@ -158,13 +173,14 @@ CREATE TABLE IF NOT EXISTS public.group_members (
 ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can manage members of their groups" ON public.group_members;
+DROP POLICY IF EXISTS "Users can manage group members" ON public.group_members;
 CREATE POLICY "Users can manage group members" ON public.group_members
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM public.groups
       WHERE id = group_id AND user_id = auth.uid()
     ) OR
-    user_id = auth.uid() -- Members can see themselves
+    user_id = auth.uid()
   );
 
 -- Create notifications table
@@ -214,7 +230,7 @@ CREATE POLICY "System can manage shopping shares" ON public.shopping_shares
   FOR ALL USING (auth.uid() = owner_id OR auth.uid() = collaborator_id);
 
 -- Update shopping_items RLS to allow shared access
-DROP POLICY IF EXISTS "Users can manage their own shopping items" ON public.shopping_items;
+DROP POLICY IF EXISTS "Users can manage shopping items" ON public.shopping_items;
 CREATE POLICY "Users can manage shopping items" ON public.shopping_items
   FOR ALL USING (
     auth.uid() = user_id OR 
@@ -223,3 +239,4 @@ CREATE POLICY "Users can manage shopping items" ON public.shopping_items
       WHERE owner_id = public.shopping_items.user_id AND collaborator_id = auth.uid()
     )
   );
+  
