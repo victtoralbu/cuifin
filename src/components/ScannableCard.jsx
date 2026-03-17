@@ -69,7 +69,7 @@ const ScannableCard = ({
     e.target.value = '';
     try {
       setIsUploading(true);
-      
+
       // Compression stage to prevent mobile crashes with high-res photos
       let fileToUpload = file;
       if (file.type.startsWith('image/')) {
@@ -86,13 +86,13 @@ const ScannableCard = ({
     } finally {
       setIsUploading(false);
     }
-  };  return (
+  }; return (
     <div className={`relative h-full ${isExpanded ? 'col-span-2' : ''}`}>
       {/* Modals outside main card to avoid opacity inheritance */}
       <AnimatePresence>
         {showAttachmentOptions && (
           <div className="fixed inset-0 z-[200]">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -163,7 +163,7 @@ const ScannableCard = ({
               }}
             >
               <div className="relative aspect-[4/5] bg-white p-4">
-                <button 
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowAttachmentPreview(false);
@@ -300,7 +300,7 @@ const ScannableCard = ({
                     return (
                       <img
                         key={id}
-                        className="inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-zinc-900 object-cover bg-zinc-100 shadow-sm"
+                        className="inline-block h-6 w-6 rounded-full ring-1 ring-white dark:ring-zinc-900 object-cover bg-zinc-100 shadow-sm"
                         src={friend.avatar}
                         alt={friend.name}
                         title={friend.name}
@@ -377,11 +377,10 @@ const ScannableCard = ({
 
                 <div className="flex gap-2.5 pt-2">
                   <button
-                    className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all shadow-lg ${
-                      transaction.status === 'pago' 
-                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 shadow-none' 
-                        : 'bg-verde text-white shadow-verde/20'
-                    }`}
+                    className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all shadow-lg ${transaction.status === 'pago'
+                      ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 shadow-none'
+                      : 'bg-verde text-white shadow-verde/20'
+                      }`}
                     onClick={(e) => {
                       e.stopPropagation();
                       onUpdate({ ...transaction, status: transaction.status === 'pago' ? 'pendente' : 'pago' });
