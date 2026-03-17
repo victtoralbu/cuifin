@@ -14,7 +14,7 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
   const getFriendData = (id) => {
     // If it's me, return 'Você'
     if (id === user?.id) return { name: 'Você', avatar: user.avatar || `https://ui-avatars.com/api/?name=V&background=random` };
-    
+
     const friend = friends.find(f => f.id === id);
     if (!friend) return { name: 'Convidado Amigo', avatar: `https://ui-avatars.com/api/?name=A&background=random` };
     return {
@@ -58,14 +58,14 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
         </div>
       </div>
 
-      <motion.div 
+      <motion.div
         drag="x"
         dragConstraints={{ left: -200, right: 200 }}
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
         whileTap={{ scale: 0.95 }}
-        onContextMenu={(e) => { 
-          e.preventDefault(); 
+        onContextMenu={(e) => {
+          e.preventDefault();
           if (window.navigator.vibrate) window.navigator.vibrate(100);
           setShowMenu(true);
         }}
@@ -73,20 +73,20 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
       >
         <AnimatePresence>
           {showMenu && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               className="absolute inset-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4"
               onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}
             >
-              <button 
+              <button
                 onClick={() => { setShowMenu(false); onEdit(transaction); }}
                 className="flex items-center gap-3 font-bold text-zinc-900 dark:text-white"
               >
                 <Edit size={20} /> Editar Item
               </button>
-              <button 
+              <button
                 onClick={() => { setShowMenu(false); onDelete(transaction.id); }}
                 className="flex items-center gap-3 font-bold text-vermelho"
               >
@@ -97,7 +97,7 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
           )}
         </AnimatePresence>
 
-        <div 
+        <div
           className={`flex flex-col gap-1 cursor-pointer p-3 ${transaction.status === 'pago' ? 'opacity-40' : ''}`}
           onClick={() => setIsExpanded(!isExpanded)}
         >
@@ -108,14 +108,14 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
                 {transaction.type === 'receita' ? '+' : ''} R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 {transaction.splitWith?.length > 0 && (
                   <span className="block text-[8px] opacity-60 font-medium leading-none mt-1">
-                    (R$ {(transaction.amount / (transaction.splitWith.length + 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cada)
+                    R$ {(transaction.amount / (transaction.splitWith.length + 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cada
                   </span>
                 )}
               </p>
               {isExpanded ? <ChevronUp size={14} className="ml-auto mt-1" /> : <ChevronDown size={14} className="ml-auto mt-1" />}
             </div>
           </div>
-          
+
           <div className="mt-auto">
             <div className="flex justify-between items-start gap-2">
               <p className={`font-bold text-base leading-tight flex-1 ${transaction.status === 'pago' ? 'text-zinc-500 line-through' : 'text-zinc-900 dark:text-zinc-100'} line-clamp-1`}>
@@ -132,12 +132,12 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
                   {transaction.splitWith.map(id => {
                     const friend = getFriendData(id);
                     return (
-                      <img 
-                        key={id} 
-                        className="inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-zinc-900 object-cover bg-zinc-100 shadow-sm" 
-                        src={friend.avatar} 
+                      <img
+                        key={id}
+                        className="inline-block h-4 w-4 rounded-full ring-1 ring-white dark:ring-zinc-900 object-cover bg-zinc-100 shadow-sm"
+                        src={friend.avatar}
                         alt={friend.name}
-                        title={friend.name} 
+                        title={friend.name}
                       />
                     );
                   })}
@@ -149,7 +149,7 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
 
           <AnimatePresence>
             {isExpanded && (
-              <motion.div 
+              <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -180,11 +180,11 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
                             {transaction.splitWith.map(id => {
                               const friend = getFriendData(id);
                               return (
-                                <img 
-                                  key={id} 
-                                  className="h-6 w-6 rounded-full border border-white dark:ring-zinc-900 shadow-sm object-cover bg-zinc-100" 
-                                  src={friend.avatar} 
-                                  alt={friend.name} 
+                                <img
+                                  key={id}
+                                  className="h-6 w-6 rounded-full border border-white dark:ring-zinc-900 shadow-sm object-cover bg-zinc-100"
+                                  src={friend.avatar}
+                                  alt={friend.name}
                                   title={friend.name}
                                 />
                               );
@@ -213,13 +213,13 @@ const ScannableCard = ({ transaction, friends = [], onUpdate, onDelete, onEdit }
                 </div>
 
                 <div className="flex gap-2 pt-2">
-                  <button 
+                  <button
                     className="flex-1 bg-verde text-white py-3 rounded-2xl font-black text-base active:opacity-80 transition-all shadow-lg shadow-verde/20"
                     onClick={() => onUpdate({ ...transaction, status: 'pago' })}
                   >
                     Marcar como Pago
                   </button>
-                  <button 
+                  <button
                     className="px-5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 py-3 rounded-2xl transition-colors active:bg-zinc-200"
                   >
                     <Paperclip size={20} />

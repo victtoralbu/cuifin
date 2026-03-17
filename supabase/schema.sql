@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   status TEXT CHECK (status IN ('pendente', 'pago')) DEFAULT 'pendente',
   split_with TEXT[], -- IDs of users to split with
   installments TEXT, -- e.g., "1/12"
+  group_id UUID REFERENCES public.groups ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -37,8 +38,15 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can manage their own transactions" ON public.transactions;
-CREATE POLICY "Users can manage their own transactions" ON public.transactions
-  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage transactions" ON public.transactions
+  FOR ALL USING (
+    auth.uid() = user_id OR 
+    auth.uid()::text = ANY(split_with) OR
+    EXISTS (
+      SELECT 1 FROM public.group_members
+      WHERE group_id = public.transactions.group_id AND user_id = auth.uid()
+    )
+  );
 
 -- Create shopping list table
 CREATE TABLE IF NOT EXISTS public.shopping_items (
@@ -127,8 +135,14 @@ CREATE TABLE IF NOT EXISTS public.groups (
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can manage their own groups" ON public.groups;
-CREATE POLICY "Users can manage their own groups" ON public.groups
-  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage groups" ON public.groups
+  FOR ALL USING (
+    auth.uid() = user_id OR
+    EXISTS (
+      SELECT 1 FROM public.group_members
+      WHERE group_id = public.groups.id AND user_id = auth.uid()
+    )
+  );
 
 -- Create group_members table
 CREATE TABLE IF NOT EXISTS public.group_members (
@@ -144,12 +158,13 @@ CREATE TABLE IF NOT EXISTS public.group_members (
 ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can manage members of their groups" ON public.group_members;
-CREATE POLICY "Users can manage members of their groups" ON public.group_members
+CREATE POLICY "Users can manage group members" ON public.group_members
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM public.groups
       WHERE id = group_id AND user_id = auth.uid()
-    )
+    ) OR
+    user_id = auth.uid() -- Members can see themselves
   );
 
 -- Create notifications table

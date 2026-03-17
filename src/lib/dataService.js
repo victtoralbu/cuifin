@@ -263,7 +263,7 @@ export const dataService = {
         *,
         members:group_members(*)
       `)
-      .eq('user_id', user.id) // Only groups I created or am part of? (Currently only creators for simplicity)
+      // Removed .eq('user_id', user.id) to allow members to see groups they are part of
       .order('created_at', { ascending: false });
 
     if (error) throw error;

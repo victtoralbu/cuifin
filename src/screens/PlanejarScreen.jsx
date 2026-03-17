@@ -10,10 +10,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.toLocaleString('pt-BR', { month: 'long' })} ${now.getFullYear()}`;
-  }); // focused month key
+  const [selectedMonth, setSelectedMonth] = useState(null); // null means all visible months
   const [showTutorial, setShowTutorial] = useState(false);
   const [friends, setFriends] = useState([]);
 
@@ -43,17 +40,46 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   // Group by month/year for data processing
   const getAllMonths = () => {
     const months = {};
+    const now = new Date();
+    // Pre-populate a 6-month window starting from the current month
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const monthLabel = d.toLocaleString('pt-BR', { month: 'long' }).toLowerCase();
+      const year = d.getFullYear();
+      const key = `${monthLabel} ${year}`;
+      months[key] = { 
+        name: monthCapitalize(monthLabel), 
+        year: year, 
+        total: 0, 
+        items: [] 
+      };
+    }
+
+    const monthNames = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+
     allTransactions.forEach(t => {
       // Parse YYYY-MM-DD string as local date by appending time
       const date = t.dueDate ? new Date(t.dueDate + 'T12:00:00') : new Date();
-      const key = `${date.toLocaleString('pt-BR', { month: 'long' })} ${date.getFullYear()}`;
-      if (!months[key]) months[key] = { name: monthCapitalize(date.toLocaleString('pt-BR', { month: 'long' })), year: date.getFullYear(), total: 0, items: [] };
+      const monthLabel = date.toLocaleString('pt-BR', { month: 'long' }).toLowerCase();
+      const year = date.getFullYear();
+      const key = `${monthLabel} ${year}`;
+
+      if (!months[key]) {
+        months[key] = { 
+          name: monthCapitalize(monthLabel), 
+          year: year, 
+          total: 0, 
+          items: [] 
+        };
+      }
 
       const shareCount = (t.splitWith?.length || 0) + 1;
       const amount = t.amount / shareCount;
       const impact = t.type === 'receita' ? t.amount : -amount;
 
-      // We still want the "impact" to reflect what's left to pay or what was planned
       months[key].total += impact;
       months[key].items.push(t);
     });
@@ -67,15 +93,54 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       });
     });
 
-    return months;
+    // Return sorted keys (chronological) 
+    // This is tricky with strings like "janeiro 2026". Let's sort by date value.
+    const sortedKeys = Object.keys(months).sort((a, b) => {
+      const [mA, yA] = a.split(' ');
+      const [mB, yB] = b.split(' ');
+      const dA = new Date(parseInt(yA), monthNames.indexOf(mA));
+      const dB = new Date(parseInt(yB), monthNames.indexOf(mB));
+      return dA - dB;
+    });
+
+    const sortedMonths = {};
+    sortedKeys.forEach(k => sortedMonths[k] = months[k]);
+    return sortedMonths;
   };
 
   const monthCapitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
   const monthsData = getAllMonths();
-  const currentGrouped = selectedMonth && monthsData[selectedMonth] 
-    ? { [selectedMonth]: monthsData[selectedMonth] } 
-    : (selectedMonth ? {} : monthsData);
+  
+  const getVisibleGroups = () => {
+    if (selectedMonth) {
+      return monthsData[selectedMonth] ? { [selectedMonth]: monthsData[selectedMonth] } : {};
+    }
+
+    // Default view: 6-month window starting from current month
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 6, 0); // End of the 6th month
+
+    const filtered = {};
+    Object.entries(monthsData).forEach(([key, data]) => {
+      const [m, y] = key.split(' ');
+      const monthNames = [
+        'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+        'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+      ];
+      const monthIdx = monthNames.indexOf(m.toLowerCase());
+      const year = parseInt(y);
+      const checkDate = new Date(year, monthIdx, 1);
+
+      if (checkDate >= startDate && checkDate <= endDate) {
+        filtered[key] = data;
+      }
+    });
+    return filtered;
+  };
+
+  const currentGrouped = getVisibleGroups();
 
   // Compute totals for current footer
   const visibleTransactions = selectedMonth ? monthsData[selectedMonth]?.items || [] : allTransactions;
@@ -130,7 +195,9 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          {Object.entries(monthsData).map(([key, data]) => (
+          {Object.entries(monthsData)
+            .filter(([_, data]) => data.items.length > 0)
+            .map(([key, data]) => (
             <motion.button
               key={key}
               whileTap={{ scale: 0.95 }}

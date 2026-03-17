@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Plus } from 'lucide-react';
 
+const PRESET_EMOJIS = [
+  '🛒', '🍎', '🍌', '🍇', '🍓', '🥑', '🥦', '🥕', '🥬', '🌽', '🥔', '🥩', '🍗', '🐟', '🥚', 
+  '🥛', '🧀', '🍞', '🥐', '🍚', '🍝', '🫘', '🥤', '🧃', '🍦', '🍫', '🧼', '🧻', '🧴'
+];
+
 const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
   const [showCustomEmoji, setShowCustomEmoji] = useState(false);
   const [formData, setFormData] = useState({
@@ -17,7 +22,7 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
         ...initialData,
         price: initialData.price.toString()
       });
-      setShowCustomEmoji(!['🛒', '🍎', '🥩', '🥛', '🍞', '🥤', '🧼', '🍗', '🥬', '🍚'].includes(initialData.emoji));
+      setShowCustomEmoji(!PRESET_EMOJIS.includes(initialData.emoji));
     } else {
       setFormData({
         name: '',
@@ -121,7 +126,7 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
             <div className="space-y-6">
               <label className="text-[10px] uppercase font-black text-zinc-400 tracking-widest block text-center">Identificar por</label>
               <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar px-1">
-                {['🛒', '🍎', '🥩', '🥛', '🍞', '🥤', '🧼', '🍗', '🥬', '🍚'].map(emoji => (
+                {PRESET_EMOJIS.map(emoji => (
                   <button
                     key={emoji}
                     type="button"
@@ -153,7 +158,7 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
                         type="text"
                         maxLength={2}
                         placeholder="🥑"
-                        value={['🛒', '🍎', '🥩', '🥛', '🍞', '🥤', '🧼', '🍗', '🥬', '🍚'].includes(formData.emoji) ? '' : formData.emoji}
+                        value={PRESET_EMOJIS.includes(formData.emoji) ? '' : formData.emoji}
                         onChange={(e) => setFormData({ ...formData, emoji: e.target.value })}
                         className="w-20 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 p-3 rounded-2xl font-black text-3xl text-center focus:border-zinc-900 dark:focus:border-white transition-all shadow-lg"
                       />
