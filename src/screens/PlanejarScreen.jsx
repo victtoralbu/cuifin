@@ -380,7 +380,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
           Object.entries(currentGrouped).map(([month, data]) => (
             <div key={month}>
               {!selectedMonth && (
-                <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50 p-3 px-4 rounded-2xl flex justify-between items-center mb-4 shadow-sm transition-all">
+                <div className="bg-zinc-200 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 p-3 px-4 rounded-2xl flex justify-between items-center mb-4 shadow-sm transition-all">
                   <h3 className="text-base font-black tracking-tight text-zinc-900 dark:text-zinc-100 capitalize">{month}</h3>
                   <p className={`font-black text-sm ${data.total >= 0 ? 'text-verde' : 'text-vermelho'}`}>
                     R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

@@ -167,6 +167,8 @@ function App() {
     const updateMetaTheme = () => {
       const isDark = document.documentElement.classList.contains('dark') || 
                      window.matchMedia('(prefers-color-scheme: dark)').matches;
+      // Use #f9fafb (zinc-50) for light mode and #000000 for dark mode to match UI exactly
+      // This overrides the 'default' green/blue status bars on some mobile browsers
       const color = isDark ? '#000000' : '#f9fafb';
       let meta = document.querySelector('meta[name="theme-color"]');
       if (!meta) {
