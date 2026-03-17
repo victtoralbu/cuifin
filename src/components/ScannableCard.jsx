@@ -60,6 +60,54 @@ const ScannableCard = ({
     }
   };
 
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error('Canvas to Blob failed'));
+              return;
+            }
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          }, 'image/jpeg', 0.8);
+        };
+        img.onerror = (e) => reject(new Error('Image load failed'));
+      };
+      reader.onerror = (e) => reject(new Error('File reader failed'));
+    });
+  };
+
   const handleAttachmentUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -67,7 +115,22 @@ const ScannableCard = ({
     e.target.value = '';
     try {
       setIsUploading(true);
-      const url = await dataService.uploadTransactionAttachment(file);
+      
+      // Compression stage to prevent mobile crashes with high-res photos
+      let fileToUpload = file;
+      if (file.type.startsWith('image/')) {
+        try {
+          fileToUpload = await compressImage(file);
+          console.log('Image compressed successfully:', { 
+            original: (file.size / 1024 / 1024).toFixed(2) + 'MB', 
+            compressed: (fileToUpload.size / 1024 / 1024).toFixed(2) + 'MB' 
+          });
+        } catch (compressErr) {
+          console.warn('Compression failed, uploading original:', compressErr);
+        }
+      }
+
+      const url = await dataService.uploadTransactionAttachment(fileToUpload);
       console.log('Upload success, URL:', url);
       await onUpdate({ ...transaction, attachmentUrl: url });
       if (window.navigator.vibrate) window.navigator.vibrate(50);
@@ -201,7 +264,7 @@ const ScannableCard = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[500] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md"
+            className="fixed inset-0 z-[500] flex flex-col items-center justify-center bg-black/80"
           >
             <div className="bg-white dark:bg-zinc-900 p-8 rounded-[40px] shadow-2xl flex flex-col items-center gap-4">
               <Loader2 size={48} className="animate-spin text-verde" />

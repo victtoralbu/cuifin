@@ -15,7 +15,7 @@ export default defineConfig({
         name: 'CuiFin',
         short_name: 'CuiFin',
         description: 'Gestão Financeira Minimalista',
-        theme_color: '#10b981',
+        theme_color: '#f9fafb',
         background_color: '#ffffff',
         display: 'standalone',
         icons: [
