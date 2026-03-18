@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect as useEffectAlias } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutList, CheckCircle, ShoppingBag, Users, MoreHorizontal, LogOut, RefreshCcw } from 'lucide-react';
+import { LayoutList, ShoppingBag, Users, LogOut, RefreshCcw, Smartphone } from 'lucide-react';
 import { useTransactions } from './hooks/useTransactions';
 import PlanejarScreen from './screens/PlanejarScreen';
 import ComprasScreen from './screens/ComprasScreen';
@@ -14,6 +14,44 @@ import NotificationModal from './components/NotificationModal';
 
 const Header = ({ user, onLogout, notificationCount, onShowNotifications }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const [installEvent, setInstallEvent] = useState(null);
+  const menuRef = useRef(null);
+
+  // Capture PWA install prompt
+  useEffectAlias(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallEvent(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    // Also pick up if it was captured earlier
+    if (window.__pwaInstallEvent) setInstallEvent(window.__pwaInstallEvent);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  // Close menu when clicking outside
+  useEffectAlias(() => {
+    if (!showMenu) return;
+    const handleOutsideClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [showMenu]);
+
+  const handleInstallApp = async () => {
+    if (!installEvent) return;
+    installEvent.prompt();
+    await installEvent.userChoice;
+    setInstallEvent(null);
+    setShowMenu(false);
+  };
 
   return (
     <header className="fixed top-4 left-4 right-4 z-50 pointer-events-none">
@@ -53,42 +91,54 @@ const Header = ({ user, onLogout, notificationCount, onShowNotifications }) => {
           >
             <RefreshCcw size={20} /> 
           </button>
-          <button 
-            onClick={() => setShowMenu(!showMenu)}
-            className="w-10 h-10 rounded-full border border-white/40 dark:border-white/10 overflow-hidden active:scale-95 transition-transform shadow-inner"
-          >
-            <img 
-              src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} 
-              alt={user.name} 
-              className="w-full h-full object-cover" 
-              onError={(e) => {
-                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`;
-              }}
-            />
-          </button>
-        </div>
 
-        <AnimatePresence>
-          {showMenu && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="absolute right-0 mt-3 w-56 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/5 p-2 z-50 origin-top-right"
+          {/* Avatar + dropdown wrapper */}
+          <div className="relative" ref={menuRef}>
+            <button 
+              onClick={() => setShowMenu(!showMenu)}
+              className="w-10 h-10 rounded-full border border-white/40 dark:border-white/10 overflow-hidden active:scale-95 transition-transform shadow-inner"
             >
-              <div className="p-4 border-b border-black/5 dark:border-white/5 mb-1">
-                <p className="font-bold text-sm truncate">{user.name}</p>
-                <p className="text-[10px] text-zinc-500 truncate font-medium uppercase tracking-widest">{user.email}</p>
-              </div>
-              <button 
-                onClick={() => { setShowMenu(false); onLogout(); }}
-                className="w-full flex items-center gap-3 p-3 text-vermelho font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-vermelho/5 transition-colors"
-              >
-                <LogOut size={16} /> Sair da Conta
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <img 
+                src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} 
+                alt={user.name} 
+                className="w-full h-full object-cover" 
+                onError={(e) => {
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`;
+                }}
+              />
+            </button>
+
+            <AnimatePresence>
+              {showMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                  className="absolute right-0 top-full mt-2 w-56 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/5 p-2 z-50 origin-top-right"
+                >
+                  <div className="p-4 border-b border-black/5 dark:border-white/5 mb-1">
+                    <p className="font-bold text-sm truncate">{user.name}</p>
+                    <p className="text-[10px] text-zinc-500 truncate font-medium uppercase tracking-widest">{user.email}</p>
+                  </div>
+                  {installEvent && (
+                    <button 
+                      onClick={handleInstallApp}
+                      className="w-full flex items-center gap-3 p-3 text-verde font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-verde/5 transition-colors"
+                    >
+                      <Smartphone size={16} /> Baixar para o Celular
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => { setShowMenu(false); onLogout(); }}
+                    className="w-full flex items-center gap-3 p-3 text-vermelho font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-vermelho/5 transition-colors"
+                  >
+                    <LogOut size={16} /> Sair da Conta
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
     </header>
   );
