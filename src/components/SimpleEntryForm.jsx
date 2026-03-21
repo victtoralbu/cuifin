@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check } from 'lucide-react';
+import useKeyboardOffset from '../hooks/useKeyboardOffset';
 
 const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicionar", placeholder = "Nome do Membro...", friends = [] }) => {
+  const keyboardOffset = useKeyboardOffset();
   const [name, setName] = useState('');
 
   useEffect(() => {
@@ -35,14 +37,15 @@ const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicio
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
           className="fixed inset-0 z-[60] bg-white dark:bg-zinc-950 flex flex-col"
+          style={{ paddingBottom: keyboardOffset }}
         >
-          <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center mt-safe">
+          <div className="sticky top-0 z-50 p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center mt-safe bg-white dark:bg-zinc-950">
             <button onClick={onClose} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-2xl transition-colors"><X size={24} /></button>
             <h2 className="text-sm font-black uppercase tracking-widest opacity-40">{title}</h2>
             <button onClick={handleSubmit} className="p-2 text-verde hover:bg-verde/10 rounded-2xl transition-colors"><Check size={24} /></button>
           </div>
 
-          <div className="flex-1 p-6 flex flex-col justify-center gap-12 overflow-y-auto pb-32">
+          <div className="flex-1 p-6 flex flex-col gap-12 overflow-y-auto pb-16">
             {friends.length > 0 && (
               <div className="space-y-4">
                 <label className="text-[10px] uppercase font-black text-zinc-400 tracking-widest block text-center italic">Amigos Sugeridos</label>
@@ -75,7 +78,6 @@ const SimpleEntryForm = ({ isOpen, onClose, onSave, initialData, title = "Adicio
                 <input
                   type="text"
                   required
-                  autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={placeholder}

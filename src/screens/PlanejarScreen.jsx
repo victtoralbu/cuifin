@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import ScannableCard from '../components/ScannableCard';
 import TransactionForm from '../components/TransactionForm';
 import SwipeTutorial from '../components/SwipeTutorial';
-import { Plus, Calendar as CalendarIcon, ArrowLeft, Copy, Trash2 } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, ArrowLeft, Copy, Trash2, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { dataService } from '../lib/dataService';
 
 const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
+  const [viewMode, setViewMode] = useState('calendar'); // 'list' or 'calendar'
+  const [collapsedYears, setCollapsedYears] = useState(() => {
+    // Past years are collapsed by default
+    const currentYear = new Date().getFullYear();
+    return {}; // Will be populated when months data is computed
+  });
   const [selectedMonth, setSelectedMonth] = useState(() => localStorage.getItem('cuifin_selected_month')); // null/undefined means all visible months
   const [showTutorial, setShowTutorial] = useState(false);
   const [friends, setFriends] = useState([]);
@@ -50,11 +55,11 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       const monthLabel = d.toLocaleString('pt-BR', { month: 'long' }).toLowerCase();
       const year = d.getFullYear();
       const key = `${monthLabel} ${year}`;
-      months[key] = { 
-        name: monthCapitalize(monthLabel), 
-        year: year, 
-        total: 0, 
-        items: [] 
+      months[key] = {
+        name: monthCapitalize(monthLabel),
+        year: year,
+        total: 0,
+        items: []
       };
     }
 
@@ -71,11 +76,11 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       const key = `${monthLabel} ${year}`;
 
       if (!months[key]) {
-        months[key] = { 
-          name: monthCapitalize(monthLabel), 
-          year: year, 
-          total: 0, 
-          items: [] 
+        months[key] = {
+          name: monthCapitalize(monthLabel),
+          year: year,
+          total: 0,
+          items: []
         };
       }
 
@@ -114,7 +119,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   const monthCapitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
   const monthsData = getAllMonths();
-  
+
   const getVisibleGroups = () => {
     if (selectedMonth) {
       return monthsData[selectedMonth] ? { [selectedMonth]: monthsData[selectedMonth] } : {};
@@ -190,9 +195,9 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
     setEditingItem(item);
     setIsFormOpen(true);
   };
-  
+
   const toggleSelection = (id) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -208,12 +213,12 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
 
   const handleBulkCopy = async (targetMonth, targetYear) => {
     const selectedTransactions = transactions.filter(t => selectedIds.includes(t.id));
-    
+
     for (const t of selectedTransactions) {
       const originalDate = t.dueDate ? new Date(t.dueDate + 'T12:00:00') : new Date();
       // Create new date with target month/year but keeping original day
       let newDate = new Date(targetYear, targetMonth, originalDate.getDate());
-      
+
       // Handle month overflow (e.g. copying 31st to a month with 30 days)
       if (newDate.getMonth() !== targetMonth) {
         newDate = new Date(targetYear, targetMonth + 1, 0); // Last day of target month
@@ -226,7 +231,7 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
         status: 'pendente' // Reset status for copies
       });
     }
-    
+
     setSelectedIds([]);
     setIsCopying(false);
     alert(`${selectedTransactions.length} itens copiados com sucesso!`);
@@ -247,48 +252,112 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
   })();
 
   if (viewMode === 'calendar') {
+    // Group months by year
+    const currentYear = new Date().getFullYear();
+    const monthsByYear = {};
+    Object.entries(monthsData).forEach(([key, data]) => {
+      const year = data.year;
+      if (!monthsByYear[year]) monthsByYear[year] = [];
+      monthsByYear[year].push({ key, data });
+    });
+    const sortedYears = Object.keys(monthsByYear).map(Number).sort((a, b) => a - b);
+
+    const toggleYear = (year) => {
+      setCollapsedYears(prev => ({ ...prev, [year]: !prev[year] }));
+    };
+
+    // By default: past years collapsed (unless explicitly opened), current/future expanded
+    const isYearCollapsed = (year) => {
+      if (collapsedYears[year] !== undefined) return collapsedYears[year];
+      return year < currentYear; // past years collapsed by default
+    };
+
     return (
-      <div className="p-4 pt-24">
-        <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => setViewMode('list')} className="p-3 bg-zinc-100 dark:bg-zinc-900 rounded-2xl active:scale-95 transition-all">
-            <ArrowLeft size={20} />
-          </button>
-          <h2 className="text-2xl font-black tracking-tight">Selecionar Mês</h2>
+      <div className="p-4 pt-4 pb-32">
+        {/* Header */}
+        <div className="sticky top-0 z-30 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-xl -mx-4 px-4 pt-24 pb-3 mb-4 border-b border-zinc-100 dark:border-zinc-900">
+          <h2 className="text-3xl font-black tracking-tighter">Planejar</h2>
+          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">Selecione um mês</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          {Object.entries(monthsData)
-            .filter(([_, data]) => data.items.length > 0)
-            .map(([key, data]) => (
-            <motion.button
-              key={key}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setSelectedMonth(key);
-                localStorage.setItem('cuifin_selected_month', key);
-                setViewMode('list');
-              }}
-              className="bg-zinc-900 dark:bg-zinc-800 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 text-left shadow-lg flex flex-col justify-between h-40 group active:scale-95 transition-all text-white"
-            >
-              <div>
-                <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-1">{data.year}</p>
-                <h3 className="text-lg font-black">{data.name}</h3>
+        <div className="space-y-6">
+          {sortedYears.map(year => {
+            const collapsed = isYearCollapsed(year);
+            const isPast = year < currentYear;
+            return (
+              <div key={year}>
+                {/* Year header — clickable to expand/collapse past years */}
+                <button
+                  onClick={() => toggleYear(year)}
+                  className={`w-full flex items-center justify-between mb-3 px-4 py-3 rounded-2xl transition-all ${
+                    isPast
+                      ? 'bg-zinc-100 dark:bg-zinc-900 opacity-60 hover:opacity-90'
+                      : 'bg-zinc-200 dark:bg-zinc-800'
+                  }`}
+                >
+                  <span className={`text-lg font-black tracking-tight ${
+                    year === currentYear ? 'text-verde' : 'text-zinc-500 dark:text-zinc-400'
+                  }`}>{year}</span>
+                  <motion.span
+                    animate={{ rotate: collapsed ? -90 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-zinc-400"
+                  >
+                    <ChevronDown size={18} />
+                  </motion.span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {!collapsed && (
+                    <motion.div
+                      key="content"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="grid grid-cols-2 gap-4 overflow-hidden"
+                    >
+                      {monthsByYear[year].map(({ key, data }) => {
+                        const isSelected = selectedMonth === key;
+                        const hasItems = data.items.length > 0;
+                        return (
+                          <motion.button
+                            key={key}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              setSelectedMonth(key);
+                              localStorage.setItem('cuifin_selected_month', key);
+                              setViewMode('list');
+                            }}
+                            className={`p-5 rounded-3xl border text-left flex flex-col justify-between h-36 transition-all ${isSelected
+                              ? 'bg-verde/20 border-verde/60 text-white shadow-lg shadow-verde/10'
+                              : hasItems
+                                ? 'bg-zinc-900 dark:bg-zinc-800 text-white border-zinc-800 shadow-md'
+                                : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 border-zinc-200 dark:border-zinc-800'
+                              }`}
+                          >
+                            <div>
+                              <h3 className="text-base font-black">{data.name}</h3>
+                              {hasItems && (
+                                <p className={`text-sm font-bold mt-1 ${isSelected ? 'text-verde' : (data.total >= 0 ? 'text-verde' : 'text-vermelho')
+                                  }`}>
+                                  R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                              )}
+                            </div>
+                            <p className={`text-[8px] font-black uppercase tracking-widest ${isSelected ? 'text-white/50' : hasItems ? 'text-zinc-400' : 'text-zinc-300 dark:text-zinc-700'
+                              }`}>
+                              {hasItems ? `${data.items.length} item${data.items.length > 1 ? 's' : ''}` : 'Vazio'}
+                            </p>
+                          </motion.button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              <div>
-                <p className={`text-sm font-black ${data.total >= 0 ? 'text-verde' : 'text-vermelho'}`}>
-                  R$ {data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-[8px] font-bold text-zinc-400 uppercase mt-1 tracking-tighter">Saldo Mensal</p>
-              </div>
-            </motion.button>
-          ))}
-          <button 
-            onClick={() => setIsFormOpen(true)}
-            className="bg-zinc-50 dark:bg-zinc-950 p-6 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center h-40 text-zinc-400 active:scale-95 transition-all"
-          >
-            <Plus size={24} className="mb-2" />
-            <span className="text-[10px] font-black uppercase">Novo Mês</span>
-          </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -300,18 +369,20 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       {/* Sticky Header - Improved to cover gap */}
       <div className="sticky top-0 z-30 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-xl -mx-4 px-4 pt-24 pb-2 mb-4 border-b border-zinc-100 dark:border-zinc-900 flex justify-between items-end transition-all">
         <div className="flex items-center gap-2 pb-1">
-          <h2 className="text-2xl font-black tracking-tight">
-            {selectedIds.length > 0 
-              ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''}`
-              : selectedMonth ? (monthsData[selectedMonth]?.name || monthCapitalize(selectedMonth.split(' ')[0])) : 'Planejar'}
-          </h2>
-          {selectedIds.length > 0 ? (
+          <div>
+            <h2 className="text-2xl font-black tracking-tight leading-tight">
+              {selectedIds.length > 0
+                ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''}`
+                : selectedMonth ? (monthsData[selectedMonth]?.name || monthCapitalize(selectedMonth.split(' ')[0])) : 'Planejar'}
+            </h2>
+            {selectedMonth && selectedIds.length === 0 && (
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">
+                {monthsData[selectedMonth]?.year || selectedMonth.split(' ')[1]}
+              </p>
+            )}
+          </div>
+          {selectedIds.length > 0 && (
             <button onClick={() => setSelectedIds([])} className="text-[10px] font-black uppercase text-vermelho bg-vermelho/10 px-2 py-1 rounded-lg">Cancelar</button>
-          ) : (
-            selectedMonth && <button onClick={() => {
-              setSelectedMonth(null);
-              localStorage.removeItem('cuifin_selected_month');
-            }} className="text-[10px] font-black uppercase text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-2 py-1 rounded-lg">Ver tudo</button>
           )}
         </div>
         <div className="flex gap-2 pb-1 relative">
@@ -438,20 +509,21 @@ const PlanejarScreen = ({ transactions, loading, onAdd, onUpdate, onDelete }) =>
       <div className="fixed bottom-24 left-4 right-4 z-40">
         <div className="bg-zinc-900/90 dark:bg-zinc-800/90 backdrop-blur-lg border border-white/10 dark:border-zinc-700 p-4 rounded-2xl shadow-2xl flex justify-between items-center text-white">
           <div>
-            <p className="text-[10px] font-bold uppercase text-zinc-400 tracking-tighter">Saldo</p>
+            <p className={`text-[10px] font-bold uppercase ${balance >= 0 ? 'text-verde' : 'text-vermelho'}`}>
+              {balance >= 0 ? 'Sobra' : 'Falta'}
+            </p>
+
             <p className={`text-xl font-black ${balance >= 0 ? 'text-verde' : 'text-vermelho'}`}>
               R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
           <div className="text-right">
-            <p className={`text-[10px] font-bold uppercase ${balance >= 0 ? 'text-verde' : 'text-vermelho'}`}>
-              {balance >= 0 ? 'Sobra' : 'Falta'}
-            </p>
-            <div className="flex gap-2 mt-1">
-              <span className="text-[9px] font-bold text-zinc-400 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">
+            <p className="text-[10px] font-bold uppercase text-zinc-400 tracking-tighter">Saldo</p>
+            <div className="flex gap-3 mt-1">
+              <span className="text-[11px] font-bold text-zinc-200 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-700 rounded">
                 + R$ {totals.income.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-[9px] font-bold text-zinc-400 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">
+              <span className="text-[11px] font-bold text-zinc-200 px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-700 rounded">
                 - R$ {totals.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>

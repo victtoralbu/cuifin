@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Plus } from 'lucide-react';
+import useKeyboardOffset from '../hooks/useKeyboardOffset';
 
 const PRESET_EMOJIS = [
   '🛒', '🍎', '🍌', '🍇', '🍓', '🥑', '🥦', '🥕', '🥬', '🌽', '🥔', '🥩', '🍗', '🐟', '🥚', 
@@ -8,6 +9,7 @@ const PRESET_EMOJIS = [
 ];
 
 const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
+  const keyboardOffset = useKeyboardOffset();
   const [showCustomEmoji, setShowCustomEmoji] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -53,8 +55,9 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
           className="fixed inset-0 z-[60] bg-white dark:bg-zinc-950 flex flex-col"
+          style={{ paddingBottom: keyboardOffset }}
         >
-          <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center mt-safe">
+          <div className="sticky top-0 z-50 p-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center mt-safe bg-white dark:bg-zinc-950">
             <button onClick={onClose} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-3xl transition-colors"><X size={24} /></button>
             <h2 className="text-sm font-black uppercase tracking-widest opacity-40">
               {initialData ? 'Editar Item' : 'Novo Item'}
@@ -69,7 +72,6 @@ const ShoppingItemForm = ({ isOpen, onClose, onSave, initialData }) => {
               <input
                 type="text"
                 required
-                autoFocus
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Ex: Arroz, Feijão..."

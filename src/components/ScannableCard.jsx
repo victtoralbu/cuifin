@@ -23,13 +23,15 @@ const ScannableCard = ({
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const fileInputRef = React.useRef(null);
   const cameraInputRef = React.useRef(null);
+  const touchTimerRef = React.useRef(null);
+  const isLongPressDetectingRef = React.useRef(false);
 
   const { user } = useAuth();
   const isOwner = transaction.userId === user?.id;
 
   const getFriendData = (id) => {
     // If it's me, return 'Você'
-    if (id === user?.id) return { name: 'Você', avatar: user.avatar || `https://ui-avatars.com/api/?name=V&background=random` };
+    if (id === user?.id) return { name: 'Você', avatar: user?.user_metadata?.avatar_url || user?.avatar || `https://ui-avatars.com/api/?name=V&background=random` };
 
     const friend = friends.find(f => f.id === id);
     if (!friend) return { name: 'Convidado Amigo', avatar: `https://ui-avatars.com/api/?name=A&background=random` };
@@ -59,6 +61,28 @@ const ScannableCard = ({
       if (window.navigator.vibrate) window.navigator.vibrate(50);
       onEdit(transaction);
     }
+  };
+
+  const handleTouchStart = () => {
+    isLongPressDetectingRef.current = true;
+    touchTimerRef.current = setTimeout(() => {
+      if (isLongPressDetectingRef.current) {
+        if (window.navigator.vibrate) window.navigator.vibrate(100);
+        onSelect(transaction.id);
+        isLongPressDetectingRef.current = false;
+      }
+    }, 500); // 500ms long press
+  };
+
+  const handleTouchMove = () => {
+    // Cancel long press if user moves finger
+    isLongPressDetectingRef.current = false;
+    if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+  };
+
+  const handleTouchEnd = () => {
+    isLongPressDetectingRef.current = false;
+    if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
   };
 
 
@@ -237,11 +261,17 @@ const ScannableCard = ({
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
         whileTap={{ scale: 0.95 }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         onContextMenu={(e) => {
-          e.preventDefault();
-          if (window.navigator.vibrate) window.navigator.vibrate(100);
-          onSelect(transaction.id);
+          e.preventDefault(); // Provide fallback for desktop right-click
+          if (!("ontouchstart" in window)) {
+            onSelect(transaction.id);
+          }
         }}
+        style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
         className={`scannable-card relative z-10 h-full ${isSelected
           ? 'ring-2 ring-verde bg-verde/5 dark:bg-verde/10'
           : transaction.status === 'pago'
@@ -273,7 +303,7 @@ const ScannableCard = ({
               <p className={`font-black text-sm ${transaction.status === 'pago' ? 'text-zinc-500/60 line-through' : (transaction.type === 'receita' ? 'text-verde' : (getStatusColor(transaction.dueDate) === 'status-vermelho' ? 'text-vermelho' : 'text-zinc-900 dark:text-zinc-100'))}`}>
                 {transaction.type === 'receita' ? '+' : ''} R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 {transaction.splitWith?.length > 0 && (
-                  <span className="block text-[9px] opacity-40 font-medium leading-none mt-1">
+                  <span className="block text-[10px] opacity-40 font-medium leading-none mt-1">
                     R$ {(transaction.amount / (transaction.splitWith.length + 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cada
                   </span>
                 )}
@@ -307,7 +337,6 @@ const ScannableCard = ({
                       />
                     );
                   })}
-                  <span className="text-[8px] font-black text-orange-500 ml-1 mt-0.5">÷</span>
                 </div>
               )}
             </div>
@@ -376,6 +405,15 @@ const ScannableCard = ({
                 </div>
 
                 <div className="flex gap-2.5 pt-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(transaction);
+                    }}
+                    className="w-[60px] h-[60px] rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex items-center justify-center flex-shrink-0"
+                  >
+                    <Edit size={20} />
+                  </button>
                   <button
                     className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all shadow-lg ${transaction.status === 'pago'
                       ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 shadow-none'
